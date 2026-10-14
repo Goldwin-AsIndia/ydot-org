@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, HostListener, OnDestroy, computed, inject, signal } from '@angular/core';
+import { Component, ElementRef, HostListener, OnDestroy, computed, inject, signal } from '@angular/core';
 import { Router, RouterModule } from '@angular/router';
 import { Subject, takeUntil } from 'rxjs';
 import { LayoutService } from '../../Service/layout-service';
@@ -49,6 +49,7 @@ export class TopheaderComponent implements OnDestroy {
   private readonly toast = inject(ToastService);
   private readonly router = inject(Router);
   private readonly layout = inject(LayoutService);
+  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
 
   private readonly destroy$ = new Subject<void>();
 
@@ -135,11 +136,70 @@ export class TopheaderComponent implements OnDestroy {
   /** Whether the organisation list is unfolded inside the account menu. */
   readonly orgListOpen = signal(false);
 
-  /** Unfolds / folds the organisation list without letting Bootstrap close the account menu. */
+  /** What is typed in the switcher's search box. */
+  readonly orgQuery = signal('');
+
+  /** The organisations matching the search - by name or subdomain. */
+  readonly filteredOrganisations = computed(() => {
+    const query = this.orgQuery().trim().toLowerCase();
+    const all = this.selectableOrganisations();
+    return query
+      ? all.filter((option) => `${option.name ?? ''} ${option.subdomain ?? ''}`.toLowerCase().includes(query))
+      : all;
+  });
+
+  /**
+   * Opens / closes the organisation list - a dropdown floating over the account menu, with its
+   * search box focused - without letting Bootstrap close the account menu.
+   */
   toggleOrgList(event: Event): void {
     event.stopPropagation();
     this.orgListOpen.update((open) => !open);
+    if (this.orgListOpen()) {
+      this.orgQuery.set('');
+      setTimeout(() => this.host.nativeElement.querySelector<HTMLInputElement>('.tb-orgs__search input')?.focus());
+    }
   }
+
+  /** A click anywhere outside the list (the search box stops its own clicks) folds it away. */
+  /** The search box's close mark: clears typed text first; on an empty box it closes the list. */
+  clearOrClose(event: Event): void {
+    event.preventDefault();
+    event.stopPropagation();
+    if (this.orgQuery()) {
+      this.orgQuery.set('');
+      this.host.nativeElement.querySelector<HTMLInputElement>('.tb-orgs__search input')?.focus();
+    } else {
+      this.orgListOpen.set(false);
+    }
+  }
+
+  @HostListener('document:click')
+  onDocumentClick(): void {
+    if (this.orgListOpen()) this.orgListOpen.set(false);
+  }
+
+  /** Set when the person's picture fails to load, so the initials take its place. */
+  readonly photoFailed = signal(false);
+
+  /**
+   * The person's own picture, when their account has one - otherwise null and the initials show.
+   *
+   * ONE OR THE OTHER, NEVER BOTH. The theme painted the same stock photograph behind every avatar,
+   * so the initials were drawn on top of somebody else's face. That background is switched off in
+   * the CSS; a picture is shown only when it is this person's (read from the signed-in user, under
+   * whichever name the API uses for it).
+   */
+  readonly photoUrl = computed<string | null>(() => {
+    if (this.photoFailed()) return null;
+    const user = this.tokens.user() as unknown as Record<string, unknown> | null | undefined;
+    if (!user) return null;
+    for (const key of ['photoUrl', 'avatarUrl', 'profileImageUrl', 'profilePictureUrl', 'pictureUrl', 'imageUrl']) {
+      const value = user[key];
+      if (typeof value === 'string' && value.trim()) return value.trim();
+    }
+    return null;
+  });
 
   readonly initials = computed(() => {
     const name = this.username();
@@ -263,6 +323,17 @@ export class TopheaderComponent implements OnDestroy {
    */
   manageOrganisations(): void {
     void this.router.navigate(['/app/administration/organisation/directory']);
+  }
+
+  /** The letter on an organisation's row in the switcher (its name may be missing). */
+  orgMark(option: TenantOptionResponse): string {
+    return (option.name ?? option.subdomain ?? '?').trim().charAt(0).toUpperCase() || '?';
+  }
+
+  /** The tooltip on an organisation's row: its name, and why it is review-only when it is. */
+  orgTitle(option: TenantOptionResponse): string {
+    const name = option.name ?? option.subdomain ?? 'Organisation';
+    return this.isOperable(option) ? name : `${name} - still onboarding, review only`;
   }
 
   /** Whether this Organisation can be worked in, or only reviewed. */

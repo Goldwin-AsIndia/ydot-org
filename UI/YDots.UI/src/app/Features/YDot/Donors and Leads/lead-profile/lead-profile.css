@@ -1,0 +1,904 @@
+/* =====================================================================================================
+   Lead profile - the lead file page (see lead-profile.ts / lead-profile.html)
+
+   The component is self-contained: its own tokens (--lp-*), the stage / temperature ink and the small
+   shared bits (caption, dot, separator, bars) are all defined here, so it renders the same wherever
+   it is hosted. Only the app's global font and button styles come from outside.
+
+   STYLE RULES (app-wide, by request): no shadows, no dark or colour-filled blocks, no italic text.
+   Colour lives in rules, outlines, underlines, glyphs and type; the one filled control is Communicate.
+   TYPE: styles.css forces size / weight / line-height with !important, so every type rule here does too.
+   SCALE: lengths are calc(Npx * var(--s)) so the page follows --ui-scale on big monitors.
+   ===================================================================================================== */
+
+:host {
+  --ui-text-scale: var(--rs-body);
+  --fw-bias: var(--fwb-body);
+  --s: var(--ui-scale, 1);
+
+  --lp-ink: var(--theme-ink, #16201b);
+  --lp-ink-2: color-mix(in srgb, var(--lp-ink) 80%, #ffffff);
+  --lp-muted: var(--theme-muted, #5b6760);
+  --lp-faint: color-mix(in srgb, var(--lp-muted) 58%, #ffffff);
+  --lp-line: color-mix(in srgb, var(--theme-primary, #375c4c) 12%, #e4e7e5);
+  --lp-line-2: color-mix(in srgb, var(--theme-primary, #375c4c) 6%, #eff1ef);
+  --lp-hover: color-mix(in srgb, var(--theme-primary, #375c4c) 3%, #ffffff);
+  --lp-accent: var(--theme-primary, #375c4c);
+  --lp-deep: var(--lx-gold-deep, #16392a);
+  --lp-gold: #a67c1c;
+
+  --lp-ok: #1b7648;
+  --lp-warn: #b25d0c;
+  --lp-danger: #b3261e;
+  --lp-info: #2b5ea6;
+  --lp-plum: #7a4ea3;
+  --lp-teal: #0f7a74;
+  --lp-slate: #66717c;
+
+  --lp-display: var(--font-display, 'Playfair Display', Georgia, serif);
+  --lp-sans: var(--font-body, 'Outfit', system-ui, sans-serif);
+  --lp-num: var(--font-number, 'IBM Plex Mono', ui-monospace, monospace);
+
+  --lp-r: calc(20px * var(--s));
+  --lp-pad: calc(28px * var(--s));
+
+  display: block;
+  color: var(--lp-ink);
+  font-family: var(--lp-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ---------- stage / temperature ink ---------- */
+[data-stage] {
+  --st: var(--lp-slate);
+}
+
+[data-stage='New'] {
+  --st: var(--lp-info);
+}
+
+[data-stage='Assigned'] {
+  --st: var(--lp-warn);
+}
+
+[data-stage='Contacted'] {
+  --st: var(--lp-teal);
+}
+
+[data-stage='Engaged'] {
+  --st: var(--lp-ok);
+}
+
+[data-stage='Nurture'] {
+  --st: var(--lp-plum);
+}
+
+[data-stage='Qualified'] {
+  --st: var(--lp-gold);
+}
+
+[data-stage='Converted'] {
+  --st: var(--lp-deep);
+}
+
+[data-stage='Dormant'] {
+  --st: #8a939c;
+}
+
+[data-stage='Lost'] {
+  --st: var(--lp-danger);
+}
+
+[data-temp] {
+  --tp: var(--lp-slate);
+}
+
+[data-temp='Hot'] {
+  --tp: var(--lp-danger);
+}
+
+[data-temp='Warm'] {
+  --tp: var(--lp-warn);
+}
+
+[data-temp='Cold'] {
+  --tp: var(--lp-info);
+}
+
+
+/* ---------- shared bits ---------- */
+.lp-cap {
+  color: var(--lp-faint);
+  font-size: calc(calc(10.5px * var(--s)) * var(--ui-text-scale, 1)) !important;
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900) !important;
+  line-height: 1.3 !important;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+}
+.lp-sep {
+  display: inline-block;
+  width: calc(3px * var(--s));
+  height: calc(3px * var(--s));
+  margin: 0 calc(9px * var(--s));
+  border-radius: 50%;
+  background: var(--lp-faint);
+  vertical-align: middle;
+}
+.lp-dot {
+  display: inline-block;
+  flex: none;
+  width: calc(7px * var(--s));
+  height: calc(7px * var(--s));
+  border-radius: 50%;
+  background: var(--st, var(--lp-slate));
+}
+.lp-stage {
+  display: inline-flex;
+  align-items: center;
+  gap: calc(7px * var(--s));
+  color: var(--st);
+  white-space: nowrap;
+  font-size: calc(calc(13px * var(--s)) * var(--ui-text-scale, 1)) !important;
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900) !important;
+  line-height: 1.3 !important;
+}
+.lp-temp {
+  display: inline-flex;
+  align-items: center;
+  gap: calc(4px * var(--s));
+  color: var(--tp);
+  white-space: nowrap;
+  font-size: calc(calc(12.5px * var(--s)) * var(--ui-text-scale, 1)) !important;
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900) !important;
+  line-height: 1.3 !important;
+}
+.lp-temp i {
+  font-size: calc(calc(14px * var(--s)) * var(--ui-text-scale, 1)) !important;
+}
+.lp-bars {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: calc(2px * var(--s));
+  height: calc(11px * var(--s));
+}
+.lp-bars span {
+  display: block;
+  width: calc(3px * var(--s));
+  border-radius: 1px;
+  background: var(--lp-line);
+}
+.lp-bars span:nth-child(1) {
+  height: 45%;
+}
+.lp-bars span:nth-child(2) {
+  height: 72%;
+}
+.lp-bars span:nth-child(3) {
+  height: 100%;
+}
+.lp-trunc {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+.lp-bars[data-level='1'] span:nth-child(-n+1),
+.lp-bars[data-level='2'] span:nth-child(-n+2),
+.lp-bars[data-level='3'] span:nth-child(-n+3) {
+  background: var(--lp-gold);
+}
+
+/* =====================================================================================================
+   LEAD FILE - "Lead dossier" as a page inside the app shell (menu and top bar stay visible; it takes the
+   queue's place, like Log communication). One white sheet, no fills, colour only in rules, glyphs and type:
+       masthead   Back to queue | name, stage dot, reference (copy), draft flag | captured / updated | actions
+       vitals     health ring | temperature | potential | response clock | owner - five equal cells
+       columns    Identity & contact + Notes | Origin & ownership + Location | Engagement & lifecycle
+                  every field one ruled ledger line: caption left, value right
+       consent    a register of ONLY the channels the person opted in to: channel, decision, status,
+                  notice version, effective, expires (nothing for channels they did not agree to)
+   ===================================================================================================== */
+.lp-page {
+  container-type: inline-size;
+  container-name: lpx;
+}
+
+.lp-sheet {
+  position: relative;
+  background: #ffffff;
+  border: 1px solid var(--lp-line);
+  border-radius: var(--lp-r);
+}
+
+/* ---------- masthead ---------- */
+.lp-mast {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: calc(10px * var(--s)) calc(18px * var(--s));
+  padding: calc(14px * var(--s)) var(--lp-pad);
+}
+
+.lp-back {
+  display: inline-flex;
+  align-items: center;
+  gap: calc(6px * var(--s));
+  height: calc(36px * var(--s));
+  padding: 0 calc(14px * var(--s));
+  border-radius: calc(10px * var(--s));
+  white-space: nowrap;
+  font-size: calc(calc(13px * var(--s)) * var(--ui-text-scale, 1)) !important;
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900) !important;
+}
+
+.lp-back i {
+  font-size: calc(calc(16px * var(--s)) * var(--ui-text-scale, 1)) !important;
+}
+
+.lp-who {
+  flex: 1 1 calc(240px * var(--s));
+  min-width: 0;
+  padding-left: calc(18px * var(--s));
+  border-left: 1px solid var(--lp-line);
+}
+
+.lp-name {
+  --ui-text-scale: var(--rs-title);
+  --fw-bias: var(--fwb-title);
+  margin: 0 0 calc(4px * var(--s));
+  overflow: hidden;
+  color: var(--lp-ink);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--lp-display) !important;
+  font-size: calc(calc(22px * var(--s)) * var(--ui-text-scale, 1)) !important;
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900) !important;
+  line-height: 1.15 !important;
+}
+
+.lp-meta {
+  display: flex;
+  align-items: center;
+  margin: 0;
+}
+
+.lp-draft {
+  color: var(--lp-warn);
+  font-size: calc(calc(11.5px * var(--s)) * var(--ui-text-scale, 1)) !important;
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900) !important;
+}
+
+.lp-ref {
+  --ui-text-scale: var(--rs-number);
+  --fw-bias: var(--fwb-number);
+  display: inline-flex;
+  align-items: center;
+  gap: calc(5px * var(--s));
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--lp-muted);
+  cursor: pointer;
+  font-family: var(--lp-num) !important;
+  font-size: calc(calc(12px * var(--s)) * var(--ui-text-scale, 1)) !important;
+  font-weight: clamp(100, calc(500 + var(--fw-bias, 0)), 900) !important;
+  line-height: 1.3 !important;
+}
+
+.lp-ref i {
+  color: var(--lp-faint);
+  font-size: calc(calc(12.5px * var(--s)) * var(--ui-text-scale, 1)) !important;
+}
+
+.lp-ref:hover,
+.lp-ref:hover i {
+  color: var(--lp-accent);
+}
+
+.lp-stamp {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: calc(22px * var(--s));
+}
+
+.lp-stamp-t {
+  display: flex;
+  flex-direction: column;
+  gap: calc(3px * var(--s));
+}
+
+.lp-stamp .lp-val {
+  font-size: calc(calc(12.5px * var(--s)) * var(--ui-text-scale, 1)) !important;
+}
+
+.lp-acts {
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: calc(8px * var(--s));
+}
+
+.lp-acts > .btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: calc(6px * var(--s));
+  height: calc(36px * var(--s));
+  padding: 0 calc(14px * var(--s));
+  border-radius: calc(10px * var(--s));
+  white-space: nowrap;
+  font-size: calc(calc(13px * var(--s)) * var(--ui-text-scale, 1)) !important;
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900) !important;
+}
+
+.lp-acts > .btn-outline-secondary {
+  border: 1px solid var(--lp-line);
+  background: #ffffff;
+  color: var(--lp-ink-2);
+}
+
+.lp-acts > .btn-outline-secondary:hover {
+  border-color: var(--lp-accent);
+  color: var(--lp-accent);
+}
+
+.lp-acts > .btn i {
+  font-size: calc(calc(16px * var(--s)) * var(--ui-text-scale, 1)) !important;
+}
+
+.lp-loading {
+  position: absolute;
+  inset: auto var(--lp-pad) 0 var(--lp-pad);
+  height: 2px;
+  overflow: hidden;
+  background: var(--lp-line-2);
+}
+
+.lp-loading::after {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 -30%;
+  width: 30%;
+  background: var(--lp-accent);
+  animation: lp-run 1s ease-in-out infinite;
+}
+
+@keyframes lp-run {
+  to { left: 100%; }
+}
+
+/* ---------- vitals: five equal cells on one ruled line ---------- */
+.lp-vitals {
+  display: flex;
+  flex-wrap: wrap;
+  padding: 0 var(--lp-pad);
+  border-block: 1px solid var(--lp-line);
+}
+
+.lp-vital {
+  display: flex;
+  flex: 1 1 calc(170px * var(--s));
+  align-items: center;
+  gap: calc(11px * var(--s));
+  min-width: 0;
+  padding: calc(13px * var(--s)) calc(16px * var(--s));
+  border-left: 1px solid var(--lp-line-2);
+}
+
+.lp-vital:first-child {
+  padding-left: 0;
+  border-left: 0;
+}
+
+.lp-vital-g {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  width: calc(36px * var(--s));
+  height: calc(36px * var(--s));
+  color: var(--lp-accent);
+}
+
+.lp-vital-g i {
+  font-size: calc(calc(22px * var(--s)) * var(--ui-text-scale, 1)) !important;
+  line-height: 1 !important;
+}
+
+.lp-vital-g.lp-temp {
+  color: var(--tp);
+}
+
+.lp-vital-t {
+  display: flex;
+  flex-direction: column;
+  gap: calc(3px * var(--s));
+  min-width: 0;
+}
+
+.lp-vital .lp-cap {
+  font-size: calc(calc(10px * var(--s)) * var(--ui-text-scale, 1)) !important;
+  letter-spacing: 0.1em;
+}
+
+.lp-vital-v {
+  color: var(--lp-ink);
+  overflow-wrap: anywhere;
+  font-size: calc(calc(14.5px * var(--s)) * var(--ui-text-scale, 1)) !important;
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900) !important;
+  line-height: 1.2 !important;
+}
+
+.lp-vital-v.lp-temp {
+  color: var(--tp);
+  font-size: calc(calc(14.5px * var(--s)) * var(--ui-text-scale, 1)) !important;
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900) !important;
+}
+
+.lp-vital-v.lp-none {
+  color: var(--lp-warn);
+}
+
+.lp-bars {
+  height: calc(18px * var(--s));
+}
+
+.lp-bars span {
+  width: calc(5px * var(--s));
+}
+
+.lp-health {
+  position: relative;
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  width: calc(36px * var(--s));
+  height: calc(36px * var(--s));
+}
+
+.lp-health svg {
+  position: absolute;
+  inset: 0;
+  width: 100% !important;
+  height: 100% !important;
+  transform: rotate(-90deg);
+}
+
+.lp-health circle {
+  fill: none;
+  stroke-width: 3;
+}
+
+.lp-health-track { stroke: var(--lp-line-2); }
+
+.lp-health-val {
+  stroke: var(--lp-ok);
+  stroke-linecap: round;
+}
+
+.lp-health-val[data-band='lq-health-mid'] { stroke: var(--lp-warn); }
+.lp-health-val[data-band='lq-health-low'] { stroke: var(--lp-danger); }
+
+.lp-health b {
+  --ui-text-scale: var(--rs-number);
+  --fw-bias: var(--fwb-number);
+  position: relative;
+  z-index: 1;
+  color: var(--lp-ink);
+  font-family: var(--lp-num) !important;
+  font-size: calc(calc(11.5px * var(--s)) * var(--ui-text-scale, 1)) !important;
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900) !important;
+  line-height: 1 !important;
+}
+
+.lp-alert {
+  display: flex;
+  align-items: center;
+  gap: calc(10px * var(--s));
+  margin: calc(14px * var(--s)) var(--lp-pad) 0;
+  padding: calc(8px * var(--s)) calc(12px * var(--s));
+  border: 1px solid color-mix(in srgb, var(--lp-danger) 35%, #ffffff);
+  border-left: 3px solid var(--lp-danger);
+  border-radius: calc(8px * var(--s));
+  color: var(--lp-ink-2);
+  font-size: calc(calc(12.5px * var(--s)) * var(--ui-text-scale, 1)) !important;
+  line-height: 1.4 !important;
+}
+
+.lp-alert i {
+  color: var(--lp-danger);
+  font-size: calc(calc(16px * var(--s)) * var(--ui-text-scale, 1)) !important;
+}
+
+.lp-alert .lp-mini {
+  margin-left: auto;
+}
+
+/* ---------- three ledger columns ---------- */
+.lp-cols {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0 calc(44px * var(--s));
+  padding: calc(8px * var(--s)) var(--lp-pad) calc(14px * var(--s));
+}
+
+.lp-col {
+  min-width: 0;
+  padding-top: calc(10px * var(--s));
+}
+
+.lp-col h2,
+.lp-consent h2 {
+  --ui-text-scale: var(--rs-title);
+  --fw-bias: var(--fwb-title);
+  display: flex;
+  align-items: center;
+  gap: calc(9px * var(--s));
+  margin: 0 0 calc(4px * var(--s));
+  color: var(--lp-ink);
+  font-family: var(--lp-display) !important;
+  font-size: calc(calc(17px * var(--s)) * var(--ui-text-scale, 1)) !important;
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900) !important;
+  line-height: 1.2 !important;
+}
+
+.lp-col h2 i,
+.lp-consent h2 i {
+  color: var(--lp-gold);
+  font-size: calc(calc(18px * var(--s)) * var(--ui-text-scale, 1)) !important;
+  font-style: normal;
+}
+
+.lp-sub {
+  margin: calc(12px * var(--s)) 0 calc(2px * var(--s));
+  padding-top: calc(10px * var(--s));
+  border-top: 1px solid var(--lp-line);
+  color: var(--lp-gold) !important;
+  font-size: calc(calc(10px * var(--s)) * var(--ui-text-scale, 1)) !important;
+  font-weight: clamp(100, calc(700 + var(--fw-bias, 0)), 900) !important;
+  letter-spacing: 0.16em;
+  line-height: 1.2 !important;
+  text-transform: uppercase;
+}
+
+.lp-list {
+  margin: 0;
+}
+
+.lp-list > div {
+  display: grid;
+  grid-template-columns: calc(112px * var(--s)) minmax(0, 1fr);
+  align-items: center;
+  gap: calc(10px * var(--s));
+  min-height: calc(34px * var(--s));
+  border-top: 1px dashed var(--lp-line-2);
+}
+
+.lp-list > div:first-child {
+  border-top: 0;
+}
+
+.lp-list > .lp-block {
+  align-items: start;
+  padding: calc(9px * var(--s)) 0;
+}
+
+.lp-list > .lp-close {
+  padding: calc(4px * var(--s)) 0;
+}
+
+.lp-lab {
+  display: block;
+  margin: 0;
+  color: var(--lp-faint);
+  font-size: calc(calc(10px * var(--s)) * var(--ui-text-scale, 1)) !important;
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900) !important;
+  letter-spacing: 0.1em;
+  line-height: 1.3 !important;
+  text-transform: uppercase;
+}
+
+.lp-val {
+  display: flex;
+  align-items: center;
+  gap: calc(5px * var(--s));
+  min-width: 0;
+  margin: 0;
+  color: var(--lp-ink);
+  font-size: calc(calc(13.5px * var(--s)) * var(--ui-text-scale, 1)) !important;
+  font-weight: clamp(100, calc(500 + var(--fw-bias, 0)), 900) !important;
+  line-height: 1.35 !important;
+}
+
+.lp-block .lp-val {
+  align-items: flex-start;
+}
+
+.lp-val .lp-trunc {
+  flex: 0 1 auto;
+}
+
+.lp-mono {
+  --ui-text-scale: var(--rs-number);
+  --fw-bias: var(--fwb-number);
+  font-family: var(--lp-num) !important;
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900) !important;
+}
+
+.lp-stack {
+  display: flex;
+  flex-direction: column;
+  gap: calc(2px * var(--s));
+}
+
+.lp-val.lp-none {
+  color: var(--lp-warn);
+}
+
+.lp-next .lp-lab {
+  color: var(--lp-gold);
+}
+
+.lp-notes {
+  margin: calc(8px * var(--s)) 0 calc(4px * var(--s));
+  padding-left: calc(14px * var(--s));
+  border-left: 2px solid var(--lp-gold);
+  color: var(--lp-ink-2);
+  font-size: calc(calc(14.5px * var(--s)) * var(--ui-text-scale, 1)) !important;
+  line-height: 1.55 !important;
+  white-space: pre-line;
+}
+
+.lp-notes.lp-empty {
+  border-left-color: var(--lp-line);
+  color: var(--lp-faint);
+}
+
+.lp-copy {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: calc(24px * var(--s));
+  height: calc(24px * var(--s));
+  border: 1px solid transparent;
+  border-radius: calc(6px * var(--s));
+  background: none;
+  color: var(--lp-faint);
+  cursor: pointer;
+}
+
+.lp-copy i {
+  font-size: calc(calc(14px * var(--s)) * var(--ui-text-scale, 1)) !important;
+}
+
+.lp-copy:hover {
+  border-color: var(--lp-line);
+  color: var(--lp-accent);
+}
+
+.lp-note {
+  display: flex;
+  align-items: center;
+  gap: calc(7px * var(--s));
+  margin: calc(8px * var(--s)) 0 calc(4px * var(--s));
+  color: var(--lp-muted);
+  font-size: calc(calc(12px * var(--s)) * var(--ui-text-scale, 1)) !important;
+  line-height: 1.4 !important;
+}
+
+.lp-note i {
+  color: var(--lp-gold);
+}
+
+.lp-mini {
+  display: inline-flex;
+  align-items: center;
+  height: calc(28px * var(--s));
+  padding: 0 calc(12px * var(--s));
+  border: 1px solid var(--lp-line);
+  border-radius: calc(8px * var(--s));
+  background: #ffffff;
+  color: var(--lp-ink-2);
+  cursor: pointer;
+  white-space: nowrap;
+  font-size: calc(calc(12px * var(--s)) * var(--ui-text-scale, 1)) !important;
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900) !important;
+  line-height: 1 !important;
+}
+
+.lp-close .lp-val {
+  gap: calc(8px * var(--s));
+}
+
+.lp-mini:hover:not(:disabled) {
+  border-color: var(--lp-accent);
+  color: var(--lp-accent);
+}
+
+.lp-mini:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
+/* ---------- consent register ---------- */
+.lp-consent {
+  padding: calc(16px * var(--s)) var(--lp-pad) calc(20px * var(--s));
+  border-top: 1px solid var(--lp-line);
+}
+
+.lp-consent-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: calc(10px * var(--s)) calc(20px * var(--s));
+  margin-bottom: calc(10px * var(--s));
+}
+
+.lp-consent-head h2 {
+  margin: 0;
+}
+
+[data-ink='ok'] { --ink: var(--lp-ok); }
+[data-ink='no'] { --ink: var(--lp-danger); }
+[data-ink='wait'] { --ink: var(--lp-warn); }
+[data-ink='none'] { --ink: var(--lp-faint); }
+
+.lp-cstate {
+  display: inline-flex;
+  align-items: center;
+  gap: calc(7px * var(--s));
+  padding: calc(3px * var(--s)) calc(12px * var(--s));
+  border: 1px solid color-mix(in srgb, var(--ink, var(--lp-faint)) 45%, #ffffff);
+  border-radius: 999px;
+  color: var(--ink, var(--lp-muted));
+  font-size: calc(calc(12.5px * var(--s)) * var(--ui-text-scale, 1)) !important;
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900) !important;
+  line-height: 1.2 !important;
+}
+
+.lp-cstate .lp-dot {
+  background: var(--ink, var(--lp-faint));
+}
+
+.lp-ccount {
+  color: var(--lp-muted);
+  font-size: calc(calc(12.5px * var(--s)) * var(--ui-text-scale, 1)) !important;
+  font-weight: clamp(100, calc(500 + var(--fw-bias, 0)), 900) !important;
+  line-height: 1.2 !important;
+}
+
+.lp-cevid {
+  display: inline-flex;
+  align-items: center;
+  gap: calc(8px * var(--s));
+  margin-left: auto;
+}
+
+.lp-cevid .lp-val i {
+  color: var(--lp-gold);
+}
+
+.lp-reg {
+  border: 1px solid var(--lp-line);
+  border-radius: calc(12px * var(--s));
+  overflow: hidden;
+}
+
+.lp-reg-row {
+  display: grid;
+  grid-template-columns: 1.3fr 1fr 1fr 1fr 1fr 1fr;
+  align-items: center;
+  gap: calc(12px * var(--s));
+  min-height: calc(44px * var(--s));
+  padding: 0 calc(18px * var(--s));
+  border-top: 1px dashed var(--lp-line-2);
+  color: var(--lp-ink);
+  font-size: calc(calc(13.5px * var(--s)) * var(--ui-text-scale, 1)) !important;
+  font-weight: clamp(100, calc(500 + var(--fw-bias, 0)), 900) !important;
+  line-height: 1.3 !important;
+}
+
+.lp-reg-row > span {
+  min-width: 0;
+}
+
+.lp-reg-row:first-child {
+  border-top: 0;
+}
+
+.lp-reg-cap {
+  min-height: calc(34px * var(--s));
+  border-bottom: 1px solid var(--lp-line);
+  color: var(--lp-faint);
+  font-size: calc(calc(10px * var(--s)) * var(--ui-text-scale, 1)) !important;
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900) !important;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.lp-reg-ch {
+  display: inline-flex;
+  align-items: center;
+  gap: calc(10px * var(--s));
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900) !important;
+}
+
+.lp-reg-ch i {
+  color: var(--lp-ok);
+  font-size: calc(calc(19px * var(--s)) * var(--ui-text-scale, 1)) !important;
+  line-height: 1 !important;
+}
+
+.lp-reg-ok {
+  display: inline-flex;
+  align-items: center;
+  gap: calc(7px * var(--s));
+  color: var(--lp-ok);
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900) !important;
+}
+
+.lp-reg-ok .lp-dot {
+  background: var(--lp-ok);
+}
+
+.lp-empty-row {
+  display: flex;
+  align-items: center;
+  gap: calc(10px * var(--s));
+  margin: 0;
+  padding: calc(14px * var(--s)) calc(18px * var(--s));
+  border: 1px dashed var(--lp-line);
+  border-radius: calc(12px * var(--s));
+  color: var(--lp-muted);
+  font-size: calc(calc(13.5px * var(--s)) * var(--ui-text-scale, 1)) !important;
+  line-height: 1.4 !important;
+}
+
+.lp-empty-row i {
+  color: var(--lp-gold);
+  font-size: calc(calc(18px * var(--s)) * var(--ui-text-scale, 1)) !important;
+}
+
+/* ---------- narrower content areas (container queries on the page) ---------- */
+@container lpx (max-width: 900px) {
+  .lp-cols { grid-template-columns: minmax(0, 1fr); gap: calc(6px * var(--s)) 0; }
+  .lp-col + .lp-col { border-top: 1px solid var(--lp-line); margin-top: calc(8px * var(--s)); padding-top: calc(14px * var(--s)); }
+  .lp-stamp { display: none; }
+}
+
+@container lpx (max-width: 720px) {
+  .lp-back { order: 1; }
+  .lp-who { flex-basis: 100%; order: 2; padding-left: 0; border-left: 0; }
+  .lp-acts { order: 3; width: 100%; }
+  .lp-acts > .btn { flex: 1 1 calc(130px * var(--s)); }
+  .lp-reg-cap { display: none; }
+  .lp-reg-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: calc(6px * var(--s)) calc(12px * var(--s));
+    padding: calc(12px * var(--s)) calc(16px * var(--s));
+  }
+  .lp-reg-row > .lp-reg-ch,
+  .lp-reg-row > .lp-reg-ok { grid-column: auto; }
+  .lp-reg-row > :nth-child(n+3)::before {
+    content: attr(data-l);
+    display: block;
+    color: var(--lp-faint);
+    font-size: calc(calc(9.5px * var(--s)) * var(--ui-text-scale, 1)) !important;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+}
+
+@container lpx (max-width: 520px) {
+  .lp-mast { padding-inline: calc(16px * var(--s)); }
+  .lp-acts { width: 100%; }
+  .lp-acts > .btn { flex: 1 1 calc(130px * var(--s)); }
+  .lp-vitals, .lp-cols, .lp-consent { padding-inline: calc(16px * var(--s)); }
+  .lp-vital { flex-basis: 45%; }
+  .lp-vital:nth-child(odd) { padding-left: 0; border-left: 0; }
+  .lp-list > div { grid-template-columns: calc(96px * var(--s)) minmax(0, 1fr); }
+}
+
+

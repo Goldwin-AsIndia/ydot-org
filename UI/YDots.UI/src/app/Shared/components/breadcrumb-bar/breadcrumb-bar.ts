@@ -11,10 +11,10 @@ const HOME = '/app/dashboard';
 /**
  * Detail screens that live OUTSIDE the menu but belong UNDER a menu page.
  *
- * A profile has no menu entry of its own: opening one from the User Directory must still show the
- * directory's full trail (Home / Users & Access / Users) plus the screen itself, the
- * same as if the profile sat in the menu next to the directory. Without this map the bar only sees
- * the page's own kicker ("Access & identity · User account") and the trail comes out short.
+ * A cold deep link / refresh-ku journey history irukkadhu — appodhaan indha map use aagum:
+ * profile-ku menu entry kedayadhu, so opening one directly must still attach it to its parent
+ * directory (User Directory). Menu-la irundhu navigate panna journey dhaan trail, so indha map
+ * fallback-ku mattum.
  */
 const PARENT_ROUTE_OF: Record<string, string> = {
   '/app/administration/access/user-profile-and-access': '/app/administration/access/user-directory',
@@ -41,8 +41,9 @@ const PARENT_ROUTE_OF: Record<string, string> = {
  *
  * That group is route-less (route: null — a nesting row the sidebar only draws), so PARENT_ROUTE_OF
  * can never reach it: no route ever matches. The parent is named by menu node CODE instead. Every
- * relationship screen is listed — menu rows and detail pages alike — so the trail always reads
- * "Home / Donors & Leads / <screen>", with or without a row of its own in the menu.
+ * relationship screen is listed — menu rows and detail pages alike — so a detail page still resolves
+ * under its group. The group itself NEVER shows in the trail (only menu PAGES do), so the trail reads
+ * "Home / <screen>", with or without a row of its own in the menu.
  */
 const PARENT_NODE_CODE_OF: Record<string, string> = {
   '/app/fundraising/relationships/lead-work-queue': 'FR_RELATIONSHIPS',
@@ -65,14 +66,14 @@ const PARENT_NODE_CODE_OF: Record<string, string> = {
 };
 
 /**
- * URL segment → trail label, used ONLY by the menu-less fallback trail (fromUrl).
- * The whole module sits on the "relationships" route segment; the trail must never spell it
- * "Relationships" — the menu calls the group "Donors & Leads" and so must the fallback.
+ * Route-less GROUP segments, dropped by the menu-less fallback (fromUrl).
+ * The whole module sits on the "relationships" route segment — the fallback must neither spell it
+ * "Relationships" nor show any group name. Journey trail-la group eppovum varaadhu.
  */
-const SEGMENT_LABEL_OF: Record<string, string> = {
-  '/app/fundraising/relationships': 'Donors & Leads',
-  '/app/don': 'Donors & Leads',
-};
+const GROUP_SEGMENT_PREFIXES: string[] = [
+  '/app/fundraising/relationships',
+  '/app/don',
+];
 
 /**
  * Detail screens whose breadcrumb ends at the screen label — the person's name/id is never appended.
@@ -162,8 +163,8 @@ export class BreadcrumbBarComponent implements OnInit, OnDestroy {
   private timer: ReturnType<typeof setTimeout> | undefined;
   private marked: Element | null = null;
 
-  /** Visited screens this session (oldest first, capped) — the journey an individual page was reached from. */
-  private readonly visited: { url: string; trail: Crumb[] }[] = [];
+  /** Vandha vazhi: last screens (url + adhoda screen label), oldest first, capped. */
+  private readonly journey: { url: string; label: string }[] = [];
 
   ngOnInit(): void {
     const area = this.host.nativeElement.parentElement;
@@ -213,18 +214,21 @@ export class BreadcrumbBarComponent implements OnInit, OnDestroy {
       if (h1Title && h1Title.length <= 60) own = h1Title;
     }
     const url = this.router.url.split(/[?#]/)[0].replace(/\/+$/, '').toLowerCase();
-    const next = this.withJourney(url, this.build(page, own));
-    this.recordVisit(url, next);
+    const next = this.build(page, own);
+    this.recordJourney(url, own || this.lastSegment(url));
     const prevCrumbs = this.crumbs();
     if (next.length !== prevCrumbs.length || next.some((c, i) => c.label !== prevCrumbs[i].label || c.link !== prevCrumbs[i].link)) this.crumbs.set(next);
   }
 
-  /** Home, then the menu path to this screen (each parent links to where it goes), then the screen itself.
+  /** Home, then the page you came FROM (link back), then the current screen (text only).
    *
-   *  Menu-la illadha detail screen (profile / create / security) PARENT_ROUTE_OF map-la irukura parent-oda
-   *  trail-ah dhaan use pannum: parent full menu path + own title. So directory-la irundhu profile-ku ponaalum
-   *  "Home / Users & Access / Users / User Profile & Access" madhiri varum —
-   *  menu-la profile-ah click panna varra mathiriye.
+   *  - Menu-la irukura page-ah MENU-la click panna: "Home / <screen>" mattum. Vandha vazhi seraadhu.
+   *    (Follow-ups-la irundhu All Donors-ah menu-la click panna "Home / All Donors" dhaan —
+   *    "Home / Follow-ups / All Donors" nu reverse aaga koodadhu.)
+   *  - Page-kulla irundhu oru ACTION mooliyama pona (Lead Work Queue → Communicate):
+   *    "Home / Lead Work Queue / Communication Timeline".
+   *  - Refresh / deep link (vandha vazhi theriyadhu): PARENT_ROUTE_OF parent + own label.
+   *  Group/module headers (Donors & Leads madhiri) eppovum trail-la varaadhu — pages mattum.
    */
   private build(page: string[], own: string): Crumb[] {
     const url = this.router.url.split(/[?#]/)[0].replace(/\/+$/, '').toLowerCase();
@@ -233,90 +237,43 @@ export class BreadcrumbBarComponent implements OnInit, OnDestroy {
     if (url === HOME) return [];
 
     const trail: Crumb[] = [{ label: 'Home', link: HOME }];
+    const current = this.title(own || this.lastSegment(url));
 
-    // PARENT_ROUTE_OF map-ku priority: profile madhiri detail screens eppovum parent (directory)
-    // trail-ah dhaan use pannanum — menu-la profile-ku thani entry irundhalum kooda.
-    // Illana "User Directory" skip aayidum (unga screenshot-la nadandhadhu adhu dhaan).
-    let path: MenuNode[] | null = null;
-    let inheritedOwn = '';
-    // Code-forced parents come first: a route-less group (Donors and Leads) can only be named by code.
-    const forcedCode = this.parentNodeCodeOf(url);
-    const forcedParent = forcedCode ? null : this.parentRouteOf(url);
-    if (forcedCode) {
-      path = this.menuPathByCode(forcedCode);
-      if (path) {
-        inheritedOwn = this.screenLabelOf(url) || own || page[page.length - 1] || this.lastSegment(url);
-      } else {
-        // Group menu-la illadhA: screen-ku menu row exact-a irundha athu dhaan saariyana trail.
-        // Illaina URL trail-ai (SEGMENT_LABEL_OF-oda) pirayoga — athu dhaan menu panna trail-ai.
-        const ownPath = this.menuPath(url);
-        if (ownPath && this.norm(ownPath[ownPath.length - 1].route) === url) path = ownPath;
-      }
-    } else if (forcedParent) {
-      path = this.menuPath(forcedParent);
-      if (path) inheritedOwn = this.screenLabelOf(url) || own || page[page.length - 1] || this.lastSegment(url);
-    }
-    if (!path && !forcedCode) path = this.menuPath(url);
-    if (path) {
-      const exact = this.norm(path[path.length - 1].route) === url;
-      path.forEach((node, i) => {
-        const last = i === path.length - 1;
-        trail.push({ label: this.title(node.name ?? ''), link: node.route && !(last && exact) ? node.route : undefined });
-      });
-      // A screen reached from a menu item (a detail or edit page) ends with its own title —
-      // aana NO_NAME_TAIL screens-ku (profile madhiri) person name append aagadhu, screen label-oda stop.
-      let tail = inheritedOwn || own;
-      if (this.suppressTail(url)) tail = this.screenLabelOf(url);
-      if (!exact && tail && tail.toLowerCase() !== (path[path.length - 1].name ?? '').toLowerCase()) trail.push({ label: this.title(tail) });
+    // Menu row exact-ah match aana — idhu MENU click (illa) direct open. Vandha vazhi sera koodadhu:
+    // "Home / <screen>" mattum. Menu-kulla ulla pages-ku idhu dhaan rule (Lead Work Queue,
+    // All Donors, Follow-ups ellamey).
+    if (this.isMenuPage(url)) {
+      trail.push({ label: current });
       return trail;
     }
-    // Not in the menu (or the menu has not loaded): the screen's own breadcrumb text, nothing linked.
-    page.forEach(label => trail.push({ label: this.title(label) }));
-    if (!page.length && own) trail.push({ label: this.title(own) });
+
+    // Vandha vazhi (previous page): page-kulla ACTION mooliyama vandha detail screens-ku mattum.
+    const prev = this.journeyPrev(url);
+    if (prev) {
+      const prevLabel = this.title(prev.label);
+      if (prevLabel.toLowerCase() !== current.toLowerCase() && prevLabel.toLowerCase() !== 'home') {
+        trail.push({ label: prevLabel, link: prev.url });
+      }
+    } else {
+      // Refresh / deep link: vandha vazhi theriyadhu — PARENT_ROUTE_OF parent page (pages mattum).
+      const parent = this.journeyParent(url);
+      if (parent) {
+        const parentCrumb = this.menuCrumbOf(parent);
+        if (parentCrumb && parentCrumb.toLowerCase() !== current.toLowerCase()) {
+          trail.push({ label: this.title(parentCrumb), link: parent });
+        }
+      }
+    }
+    trail.push({ label: current });
     return trail;
   }
 
   /**
-   * An INDIVIDUAL page (a detail / record / edit screen the menu does not list exactly) also shows the
-   * page it was reached from — the journey, not only the menu position. Lead Work Queue → Communicate
-   * reads "Home / Donors & Leads / Lead Work Queue / Communication Timeline".
-   *
-   * Home and exact menu screens RESTART the trail (their menu path is the whole truth); a cold deep
-   * link falls back to the menu trail; screens from a different module never chain; and the trail is
-   * capped so the bar can never grow without bound.
+   * Sidebar-odae group rule: group header trail-la vara koodadhu, menu PAGES mattum dhaan.
+   * isGroupOnly flag irundha — route irundhalum — adhu heading dhaan, page illa.
    */
-  private withJourney(url: string, base: Crumb[]): Crumb[] {
-    if (url === HOME || base.length < 2) return base;
-
-    // Exact menu screens ARE the trail — the journey restarts there.
-    const path = this.menuPath(url);
-    if (path && this.norm(path[path.length - 1].route) === url) return base;
-
-    // The most recent screen visited before this one (re-scanning the same URL is not a step).
-    const prevVisit = [...this.visited].reverse().find(v => v.url !== url && v.trail.length > 1);
-    if (!prevVisit) return base;
-
-    // Only screens of the same module chain together: Donors & Leads record pages stay under Donors & Leads.
-    const moduleOf = (trail: Crumb[]): string => trail[1]?.label.toLowerCase() ?? '';
-    if (moduleOf(prevVisit.trail) !== moduleOf(base)) return base;
-
-    const last = base[base.length - 1];
-    if (!last || prevVisit.trail.some(c => c.label.toLowerCase() === last.label.toLowerCase())) return base;
-
-    // The previous screen's OWN crumb must be a real link back to it. It was the last crumb — plain
-    // text — when that page was current, so give it the route it was visited at.
-    const upToPrev = prevVisit.trail.map((c, i) =>
-      i === prevVisit.trail.length - 1 && !c.link ? { ...c, link: prevVisit.url } : c);
-    const chained = [...upToPrev, last];
-    return chained.length > 7 ? [chained[0], ...chained.slice(-6)] : chained;
-  }
-
-  /** Remember this screen's trail so a page opened FROM it can show where it came from. */
-  private recordVisit(url: string, trail: Crumb[]): void {
-    const i = this.visited.findIndex(v => v.url === url);
-    if (i >= 0) this.visited.splice(i, 1);
-    this.visited.push({ url, trail });
-    if (this.visited.length > 12) this.visited.shift();
+  private isGroup(node: MenuNode): boolean {
+    return node.isGroupOnly === true || !this.norm(node.route);
   }
 
   /** Longest parent-map prefix for this URL (parameterised detail URLs-um match aagum), or null. */
@@ -358,6 +315,54 @@ export class BreadcrumbBarComponent implements OnInit, OnDestroy {
       const k = p.toLowerCase();
       return url === k || url.startsWith(k + '/');
     });
+  }
+
+  /** Indha screen-ah record pannu — adutha page-ku idhu dhaan "vandha vazhi" (previous page). */
+  private recordJourney(url: string, label: string): void {
+    const clean = (label ?? '').replace(/\s+/g, ' ').trim() || this.lastSegment(url);
+    const i = this.journey.findIndex(j => j.url === url);
+    if (i >= 0) this.journey.splice(i, 1);
+    this.journey.push({ url, label: clean });
+    if (this.journey.length > 12) this.journey.shift();
+  }
+
+  /** Current screen-ku munnadi irundha page (same URL re-scan step illa). */
+  private journeyPrev(url: string): { url: string; label: string } | null {
+    if (url === HOME) return null;
+    const prev = [...this.journey].reverse().find(j => j.url !== url && j.url !== HOME);
+    return prev ?? null;
+  }
+
+  /** Refresh / deep link fallback: PARENT map-la irukura parent route (param ids strip panni). */
+  private journeyParent(url: string): string | null {
+    const parent = this.parentRouteOf(url);
+    return parent ? parent.toLowerCase() : null;
+  }
+
+  /** Menu-la oru route-oda display name (group headers skip — routable page mattum). */
+  private menuCrumbOf(route: string): string {
+    const path = this.menuPath(route);
+    if (!path) return '';
+    const shown = path.filter(n => !this.isGroup(n));
+    return shown[shown.length - 1]?.name ?? path[path.length - 1]?.name ?? '';
+  }
+
+  /**
+   * URL menu-la oru page row-va (exact route match)? Aana vandha vazhi sera koodadhu —
+   * menu click / direct open eppovum "Home / <screen>" mattum. Detail screens (menu-la illadhadhu)
+   * ku dhaan journey trail.
+   */
+  private isMenuPage(url: string): boolean {
+    let hit = false;
+    const walk = (nodes: MenuNode[] | null | undefined): void => {
+      for (const n of nodes ?? []) {
+        if (hit) return;
+        if (!this.isGroup(n) && this.norm(n.route) === url) { hit = true; return; }
+        walk(n.children);
+      }
+    };
+    walk(this.navigation.menu());
+    return hit;
   }
 
   /** Last URL segment as a readable label (ids / GUIDs skip panni). */
@@ -425,18 +430,21 @@ export class BreadcrumbBarComponent implements OnInit, OnDestroy {
 
   private fromUrl(): string[] {
     const raw = this.router.url.split(/[?#]/)[0].replace(/^\/app\/?/, '').split('/');
-    // SEGMENT_LABEL_OF-oda group segment-ai maathu — menu illaadha trail "Relationships" nu kaattakoodathu.
+    // Group segment-ai (relationships madhiri) drop pannidu — menu illaadha fallback trail-layum
+    // group name vara koodadhu, menu pages mattum dhaan.
     const url = this.router.url.split(/[?#]/)[0].toLowerCase();
-    for (const [key, label] of Object.entries(SEGMENT_LABEL_OF)) {
+    for (const key of GROUP_SEGMENT_PREFIXES) {
       const k = key.toLowerCase();
       if (url === k || url.startsWith(k + '/')) {
         const idx = key.split('/').filter(s => s && s.toLowerCase() !== 'app').length - 1;
-        if (idx >= 0 && idx < raw.length) raw[idx] = label;
+        if (idx >= 0 && idx < raw.length) raw.splice(idx, 1);
         break;
       }
     }
     return raw
       .filter(s => s && !/^\d+$/.test(s) && !/^[0-9a-f-]{20,}$/i.test(s))
-      .map(s => decodeURIComponent(s).replace(/[-_]+/g, ' '));
+      .map(s => decodeURIComponent(s).replace(/[-_]+/g, ' '))
+      // Fallback-layum page mattum dhaan — middle URL segments (module/group names) crumbs aaga koodadhu.
+      .slice(-1);
   }
 }

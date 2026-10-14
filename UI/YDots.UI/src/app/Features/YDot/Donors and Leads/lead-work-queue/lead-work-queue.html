@@ -29,6 +29,10 @@
       <div class="pq-page">
       <section class="pq-desk" aria-labelledby="pq-title">
 
+        <!-- ================= TWO CARDS =================
+             1. top card    - title, search, filters, actions, applied tokens AND the lanes (unchanged)
+             2. table card  - column caption, rows, pager, selection bar - its own card below, with a gap -->
+        <div class="pq-card pq-card--tools">
         <!-- ================= MASTHEAD: one line - title + refresh | search, filters, page actions ================= -->
         <header class="pq-mast">
           <div class="pq-mast-id">
@@ -134,7 +138,9 @@
             </button>
           }
         </nav>
+        </div>
 
+        <div class="pq-card pq-card--table">
         <!-- ================= THE QUEUE ================= -->
         @if (uiState() === 'error') {
           <div class="pq-state is-error" role="alert">
@@ -192,10 +198,10 @@
                 </div>
 
                 <div class="pq-owner" [class.is-none]="!lead.hasOwner">
-                  <span class="pq-main" [title]="lead.owner">{{ lead.owner }}</span>
+                  <span class="pq-main" [title]="lead.owner"><i [class]="lead.hasOwner ? 'ri-user-line' : 'ri-user-unfollow-line'" aria-hidden="true"></i>{{ lead.owner }}</span>
                 </div>
 
-                <span class="pq-stagetext" [attr.data-stage]="lead.stage">{{ lead.stage }}</span>
+                <span class="pq-stagetext" [attr.data-stage]="lead.stage"><span class="pq-dot" aria-hidden="true"></span>{{ lead.stage }}</span>
 
                 <div class="pq-signals">
                   <span class="pq-temp" [attr.data-temp]="lead.temperature" [title]="lead.temperature + ' lead'"><i class="ri-temp-hot-line" aria-hidden="true"></i>{{ lead.temperature || '—' }}</span>
@@ -238,6 +244,11 @@
             <app-rows-per-page [value]="pageSize()" (changed)="setPageSize($event)" />
             <nav class="pq-pager" aria-label="Pagination">
               <button type="button" class="pq-page-btn" aria-label="Previous page" title="Previous page" [disabled]="pageIndex() === 1 || uiState() === 'loading'" (click)="goToPage(pageIndex() - 1)"><i class="ri-arrow-left-s-line" aria-hidden="true"></i></button>
+              <!-- Page 1 stays reachable: "1 … 3 4" once the window has moved past it ("1 2 3" when it is next door). -->
+              @if (pageNumbers()[0] > 1) {
+                <button type="button" class="pq-page-btn" [attr.aria-label]="'Page 1'" (click)="goToPage(1)">1</button>
+                @if (pageNumbers()[0] > 2) { <span class="pq-page-gap" aria-hidden="true">…</span> }
+              }
               @for (page of pageNumbers(); track page) {
                 <button type="button" class="pq-page-btn" [class.is-on]="page === pageIndex()" [attr.aria-current]="page === pageIndex() ? 'page' : null" (click)="goToPage(page)">{{ page }}</button>
               }
@@ -260,141 +271,166 @@
             }
           </div>
         }
+        </div>
       </section>
       </div>
     </div>
   </div>
 </main>
 
-<!-- ================= LEAD BRIEF drawer (frame from the shared pop-up design, styles/ydot-dialogs.css) ================= -->
-<dialog #leadDialog class="pq-drawer" aria-labelledby="pq-dr-title" aria-describedby="pq-dr-desc"
+<!-- ================= LEAD BRIEF side panel (full height) =================
+     A full-height panel on the right with its OWN frame (class pq-lb only - the shared drawer styles
+     in ydot-dialogs.css squeezed the head and broke the layout).
+       hero     stage-coloured rule, name, stage · reference · owner, close
+       body     next follow-up, the three signals as meters, then two lists of icon rows
+                (Contact, Origin & ownership), then Close this lead
+       foot     Reassign | Schedule follow-up | Communicate, pinned to the bottom
+     Only the body scrolls; hero and foot stay put. -->
+<dialog #leadDialog class="pq-lb" aria-labelledby="pq-dr-title" aria-describedby="pq-dr-desc"
         (click)="onPreviewBackdrop($event)" (cancel)="closePreview()" (close)="closePreview()">
   @if (selectedLead(); as lead) {
-    <header class="pq-dr-head">
-      <div class="pq-dr-bar">
-        <!-- <span class="pq-eyebrow"><i class="ri-user-star-line" aria-hidden="true"></i>Lead brief</span> -->
-        <!-- <button type="button" class="pq-dr-close" title="Close" aria-label="Close lead brief" autofocus (click)="closePreview()"><i class="ri-close-line" aria-hidden="true"></i></button> -->
+    <!-- HERO: name and where the lead stands - no avatar, no button row. A stage-coloured rule on the
+         left, the name, then stage · reference · owner on one quiet line. -->
+    <div class="pq-lb-hero" [attr.data-stage]="lead.stage">
+      <div class="pq-lb-hero-top">
+        <span class="pq-lb-kicker">Lead brief</span>
+        <button type="button" class="pq-lb-x" title="Close" aria-label="Close lead brief" (click)="closePreview()"><i class="ri-close-line" aria-hidden="true"></i></button>
       </div>
-      <div class="pq-dr-id">
-        <div class="pq-dr-who">
-          <h2 id="pq-dr-title">{{ lead.name }}</h2>
-          <p id="pq-dr-desc" class="pq-dr-line">
-            <span class="pq-stagetext" [attr.data-stage]="lead.stage"><span class="pq-dot" aria-hidden="true"></span>{{ lead.stage }}</span>
-            <span class="pq-sep" aria-hidden="true"></span>
-            <button type="button" class="pq-copy" (click)="copyValue('id', lead.reference)" [title]="'Copy ' + lead.reference">
-              {{ lead.reference }}<i [class]="copiedField() === 'id' ? 'ri-check-line' : 'ri-file-copy-line'" aria-hidden="true"></i>
-            </button>
-          </p>
-        </div>
-      </div>
-    </header>
+      <p id="pq-dr-title" class="pq-lb-name" role="heading" aria-level="2">{{ lead.name }}</p>
+      <p id="pq-dr-desc" class="pq-lb-line">
+        <span class="pq-lb-stage"><span class="pq-dot" aria-hidden="true"></span>{{ lead.stage }}</span>
+        <span class="pq-lb-dot" aria-hidden="true"></span>
+        <button type="button" class="pq-lb-ref" (click)="copyValue('id', lead.reference)" [title]="'Copy ' + lead.reference">
+          {{ lead.reference }}<i [class]="copiedField() === 'id' ? 'ri-check-line' : 'ri-file-copy-line'" aria-hidden="true"></i>
+        </button>
+        <span class="pq-lb-dot" aria-hidden="true"></span>
+        <span class="pq-lb-owner" [class.pq-none]="!lead.hasOwner"><i class="ri-user-line" aria-hidden="true"></i>{{ displayValue(lead.owner) }}</span>
+      </p>
+    </div>
 
-    <div class="pq-dr-body">
-      <div class="pq-dr-figs">
-        <div class="pq-dr-fig">
-          <span class="pq-cap">Health</span>
-          <span class="pq-health">
-            <svg viewBox="0 0 36 36" aria-hidden="true">
-              <circle cx="18" cy="18" r="15.5" class="pq-health-track"></circle>
-              <circle cx="18" cy="18" r="15.5" class="pq-health-val" pathLength="100" [attr.stroke-dasharray]="lead.healthScore + ' 100'"
-                      [attr.data-band]="healthClass(lead.healthBand)"></circle>
-            </svg>
-            <b>{{ lead.healthScore }}</b>
-          </span>
+    <div class="pq-lb-body">
+      <!-- 1. what to do next -->
+      <div class="pq-lb-next" [attr.data-due]="lead.nextFollowUp ? dueState(lead).tone : 'none'">
+        <span class="pq-lb-next-g" aria-hidden="true"><i class="ri-calendar-event-line"></i></span>
+        <div class="pq-lb-next-t">
+          <span class="pq-lb-cap">Next follow-up</span>
+          <span class="pq-lb-next-d">{{ lead.nextFollowUp || 'Not planned' }}</span>
+          @if (lead.nextAction) {
+            <span class="pq-lb-next-o">{{ lead.nextAction }}</span>
+          }
         </div>
-        <div class="pq-dr-fig">
-          <span class="pq-cap">Temperature</span>
-          <span class="pq-temp pq-temp--lg" [attr.data-temp]="lead.temperature"><i class="ri-temp-hot-line" aria-hidden="true"></i>{{ lead.temperature || '—' }}</span>
-        </div>
-        <div class="pq-dr-fig">
-          <span class="pq-cap">Potential</span>
-          <span class="pq-pot pq-pot--lg">
-            <span class="pq-bars" aria-hidden="true" [attr.data-level]="potentialLevel(lead.donationPotential)"><span></span><span></span><span></span></span>
-            {{ lead.donationPotential || '—' }}
-          </span>
-        </div>
+        @if (lead.nextFollowUp) {
+          <span class="pq-lb-due">{{ dueState(lead).label }}</span>
+        }
       </div>
 
-      <section class="pq-dr-sec" aria-labelledby="pq-sec-contact">
-        <h3 id="pq-sec-contact"><span class="pq-dr-no">01</span>Contact</h3>
-        <dl class="pq-dl">
-          <div>
-            <dt>Phone</dt>
-            <dd class="pq-num">
-              {{ displayValue(lead.mobile) }}
-              @if (lead.mobile) {
-                <button type="button" class="pq-copy-g" (click)="copyValue('mobile', lead.mobile)" title="Copy phone number" aria-label="Copy phone number"><i [class]="copiedField() === 'mobile' ? 'ri-check-line' : 'ri-file-copy-line'" aria-hidden="true"></i></button>
-              }
-            </dd>
+      <!-- 2. signals as meters -->
+      <div class="pq-lb-meters" role="list" aria-label="Lead signals">
+        <div class="pq-lb-meter" role="listitem">
+          <span class="pq-lb-cap">Health</span>
+          <span class="pq-lb-meter-v">{{ lead.healthScore }}<small>/100</small></span>
+          <span class="pq-lb-bar" [attr.data-band]="healthClass(lead.healthBand)" aria-hidden="true"><span [style.width.%]="lead.healthScore"></span></span>
+          <span class="pq-lb-meter-h">{{ lead.healthBand || '—' }}</span>
+        </div>
+        <div class="pq-lb-meter" role="listitem">
+          <span class="pq-lb-cap">Temperature</span>
+          <span class="pq-lb-meter-v" [attr.data-temp]="lead.temperature">{{ lead.temperature || '—' }}</span>
+          <span class="pq-lb-steps" [attr.data-temp]="lead.temperature" aria-hidden="true"><span></span><span></span><span></span></span>
+          <span class="pq-lb-meter-h">Cold · Warm · Hot</span>
+        </div>
+        <div class="pq-lb-meter" role="listitem">
+          <span class="pq-lb-cap">Potential</span>
+          <span class="pq-lb-meter-v">{{ lead.donationPotential || '—' }}</span>
+          <span class="pq-lb-steps pq-lb-steps--gold" [attr.data-level]="potentialLevel(lead.donationPotential)" aria-hidden="true"><span></span><span></span><span></span></span>
+          <span class="pq-lb-meter-h">Donation potential</span>
+        </div>
+      </div>
+
+      <!-- 3. contact -->
+      <div class="pq-lb-group" role="group" aria-labelledby="pq-sec-contact">
+        <p id="pq-sec-contact" class="pq-lb-cap pq-lb-group-t" role="heading" aria-level="3">Contact</p>
+        <div class="pq-lb-rows">
+          <div class="pq-lb-row">
+            <span class="pq-lb-row-g" aria-hidden="true"><i class="ri-phone-line"></i></span>
+            <span class="pq-lb-row-t"><span class="pq-lb-l">Phone</span><span class="pq-lb-v pq-num">@if (lead.masked) { <i class="ri-lock-line" title="Masked for your role" aria-label="Masked"></i> }{{ displayValue(lead.mobile) }}</span></span>
+            @if (lead.mobile) {
+              <button type="button" class="pq-lb-copy" (click)="copyValue('mobile', lead.mobile)" title="Copy phone number" aria-label="Copy phone number"><i [class]="copiedField() === 'mobile' ? 'ri-check-line' : 'ri-file-copy-line'" aria-hidden="true"></i></button>
+            }
           </div>
-          <div>
-            <dt>E-mail</dt>
-            <dd>
-              <span class="pq-trunc" [title]="displayValue(lead.email)">{{ displayValue(lead.email) }}</span>
-              @if (lead.email) {
-                <button type="button" class="pq-copy-g" (click)="copyValue('email', lead.email)" title="Copy e-mail address" aria-label="Copy e-mail address"><i [class]="copiedField() === 'email' ? 'ri-check-line' : 'ri-file-copy-line'" aria-hidden="true"></i></button>
-              }
-            </dd>
+          <div class="pq-lb-row">
+            <span class="pq-lb-row-g" aria-hidden="true"><i class="ri-mail-line"></i></span>
+            <span class="pq-lb-row-t"><span class="pq-lb-l">E-mail</span><span class="pq-lb-v pq-trunc" [title]="displayValue(lead.email)">{{ displayValue(lead.email) }}</span></span>
+            @if (lead.email) {
+              <button type="button" class="pq-lb-copy" (click)="copyValue('email', lead.email)" title="Copy e-mail address" aria-label="Copy e-mail address"><i [class]="copiedField() === 'email' ? 'ri-check-line' : 'ri-file-copy-line'" aria-hidden="true"></i></button>
+            }
           </div>
-          <div><dt>Language</dt><dd>{{ displayValue(lead.language) }}</dd></div>
+          <div class="pq-lb-row">
+            <span class="pq-lb-row-g" aria-hidden="true"><i class="ri-translate-2"></i></span>
+            <span class="pq-lb-row-t"><span class="pq-lb-l">Language</span><span class="pq-lb-v">{{ displayValue(lead.language) }}</span></span>
+          </div>
           @if (lead.masked) {
-            <div class="pq-dl-note"><dt><i class="ri-lock-line" aria-hidden="true"></i></dt><dd>Contact details are masked for your role.</dd></div>
+            <p class="pq-lb-note"><i class="ri-lock-line" aria-hidden="true"></i>Contact details are masked for your role.</p>
           }
-        </dl>
-      </section>
+        </div>
+      </div>
 
-      <section class="pq-dr-sec" aria-labelledby="pq-sec-origin">
-        <h3 id="pq-sec-origin"><span class="pq-dr-no">02</span>Origin &amp; ownership</h3>
-        <dl class="pq-dl">
-          <div><dt>Campaign</dt><dd>{{ displayValue(lead.campaign) }}</dd></div>
-          <div><dt>Lead source</dt><dd>{{ displayValue(lead.source) }}</dd></div>
-          <div><dt>Owner</dt><dd [class.pq-none]="!lead.hasOwner">{{ displayValue(lead.owner) }}</dd></div>
-          @if (!lead.converted && permissions().communicate) {
-            <div>
-              <dt>Donation link</dt>
-              <dd>
-                <span class="pq-trunc" [title]="donationLink(lead)">{{ donationLink(lead) }}</span>
-                <button type="button" class="pq-copy-g" (click)="copyValue('link', donationLink(lead))" title="Copy the donation link for this lead" aria-label="Copy the donation link for this lead"><i [class]="copiedField() === 'link' ? 'ri-check-line' : 'ri-file-copy-line'" aria-hidden="true"></i></button>
-              </dd>
-            </div>
-          }
-        </dl>
-      </section>
-
-      <section class="pq-dr-sec" aria-labelledby="pq-sec-eng">
-        <h3 id="pq-sec-eng"><span class="pq-dr-no">03</span>Engagement</h3>
-        <dl class="pq-dl">
-          <div><dt>Last outcome</dt><dd>{{ displayValue(lead.lastContactOutcome) }}</dd></div>
+      <!-- 4. origin & ownership -->
+      <div class="pq-lb-group" role="group" aria-labelledby="pq-sec-origin">
+        <p id="pq-sec-origin" class="pq-lb-cap pq-lb-group-t" role="heading" aria-level="3">Origin &amp; ownership</p>
+        <div class="pq-lb-rows">
+          <div class="pq-lb-row">
+            <span class="pq-lb-row-g" aria-hidden="true"><i class="ri-megaphone-line"></i></span>
+            <span class="pq-lb-row-t"><span class="pq-lb-l">Campaign</span><span class="pq-lb-v">{{ displayValue(lead.campaign) }}</span></span>
+          </div>
+          <div class="pq-lb-row">
+            <span class="pq-lb-row-g" aria-hidden="true"><i class="ri-route-line"></i></span>
+            <span class="pq-lb-row-t"><span class="pq-lb-l">Lead source</span><span class="pq-lb-v">{{ displayValue(lead.source) }}</span></span>
+          </div>
+          <div class="pq-lb-row">
+            <span class="pq-lb-row-g" aria-hidden="true"><i class="ri-user-star-line"></i></span>
+            <span class="pq-lb-row-t"><span class="pq-lb-l">Owner</span><span class="pq-lb-v" [class.pq-none]="!lead.hasOwner">{{ displayValue(lead.owner) }}</span></span>
+          </div>
+          <div class="pq-lb-row">
+            <span class="pq-lb-row-g" aria-hidden="true"><i class="ri-chat-history-line"></i></span>
+            <span class="pq-lb-row-t"><span class="pq-lb-l">Last outcome</span><span class="pq-lb-v">{{ displayValue(lead.lastContactOutcome) }}</span></span>
+          </div>
           @if (lead.lastActivity && lead.lastActivity !== lead.lastContactOutcome) {
-            <div><dt>Last activity</dt><dd>{{ lead.lastActivity }}</dd></div>
-          }
-          <div><dt>Next follow-up</dt><dd class="pq-num">{{ lead.nextFollowUp || 'Not planned' }}</dd></div>
-          <!-- Closing a lead: offered to whoever the server lists Close for on this lead. -->
-          @if (canClose(lead)) {
-            <div>
-              <dt>Close lead</dt>
-              <dd>
-                <button type="button" class="pq-link" [disabled]="closing()" (click)="onCloseLead(lead, 'Lost')">Mark lost</button>
-                <button type="button" class="pq-link" [disabled]="closing()" (click)="onCloseLead(lead, 'Dormant')">Mark dormant</button>
-              </dd>
+            <div class="pq-lb-row">
+              <span class="pq-lb-row-g" aria-hidden="true"><i class="ri-history-line"></i></span>
+              <span class="pq-lb-row-t"><span class="pq-lb-l">Last activity</span><span class="pq-lb-v">{{ lead.lastActivity }}</span></span>
             </div>
           }
-        </dl>
-      </section>
+          @if (!lead.converted && permissions().communicate) {
+            <div class="pq-lb-row">
+              <span class="pq-lb-row-g" aria-hidden="true"><i class="ri-hand-heart-line"></i></span>
+              <span class="pq-lb-row-t"><span class="pq-lb-l">Donation link</span><span class="pq-lb-v pq-trunc pq-lb-link" [title]="donationLink(lead)">{{ donationLink(lead) }}</span></span>
+              <button type="button" class="pq-lb-copy" (click)="copyValue('link', donationLink(lead))" title="Copy the donation link for this lead" aria-label="Copy the donation link for this lead"><i [class]="copiedField() === 'link' ? 'ri-check-line' : 'ri-file-copy-line'" aria-hidden="true"></i></button>
+            </div>
+          }
+        </div>
+      </div>
+
+      <!-- 5. close the lead: offered to whoever the server lists Close for on this lead -->
+      @if (canClose(lead)) {
+        <div class="pq-lb-close">
+          <span class="pq-lb-close-t"><i class="ri-archive-line" aria-hidden="true"></i>Close this lead</span>
+          <button type="button" class="pq-lb-mark-btn pq-lb-mark-btn--lost" [disabled]="closing()" (click)="onCloseLead(lead, 'Lost')"><i class="ri-close-circle-line" aria-hidden="true"></i>Mark lost</button>
+          <button type="button" class="pq-lb-mark-btn" [disabled]="closing()" (click)="onCloseLead(lead, 'Dormant')"><i class="ri-moon-line" aria-hidden="true"></i>Mark dormant</button>
+        </div>
+      }
       <span class="visually-hidden" role="status">{{ copiedField() ? 'Copied to clipboard' : '' }}</span>
     </div>
 
-    <footer class="pq-dr-foot">
-      <span class="pq-selbar-gap"></span>
+    <div class="pq-lb-foot">
       @if (canRoute(lead) && lead.hasOwner) {
-        <button type="button" class="btn btn-outline-secondary btn-sm" (click)="onAssign(lead)"><i class="ri-user-shared-line" aria-hidden="true"></i> Reassign</button>
+        <button type="button" class="btn btn-outline-secondary btn-sm" (click)="onAssign(lead)"><i class="ri-user-shared-line" aria-hidden="true"></i><span>Reassign</span></button>
       }
       @if (permissions().schedule && !lead.converted) {
-        <button type="button" class="btn btn-outline-secondary btn-sm" (click)="onSchedule(lead)"><i class="ri-calendar-event-line" aria-hidden="true"></i> Schedule follow-up</button>
+        <button type="button" class="btn btn-outline-secondary btn-sm" (click)="onSchedule(lead)"><i class="ri-calendar-event-line" aria-hidden="true"></i><span>Schedule follow-up</span></button>
       }
       @if (permissions().communicate) {
-        <button type="button" class="btn btn-primary btn-sm" (click)="onCommunicate(lead)"><i class="ri-chat-3-line" aria-hidden="true"></i> Communicate</button>
+        <button type="button" class="btn btn-primary btn-sm" (click)="onCommunicate(lead)"><i class="ri-chat-3-line" aria-hidden="true"></i><span>Communicate</span></button>
       }
-    </footer>
+    </div>
   }
 </dialog>

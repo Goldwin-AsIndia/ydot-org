@@ -90,7 +90,9 @@
             <div class="dropdown pe-dropdown-mega">
                 <button class="tb-profile" type="button" data-bs-toggle="dropdown" aria-expanded="false"
                         aria-label="Account menu" (click)="onSwitcherOpened()">
-                    <span class="tb-avatar" aria-hidden="true">{{ initials() }}</span>
+                    <span class="tb-avatar" [class.has-photo]="!!photoUrl()" aria-hidden="true">
+                        @if (photoUrl(); as photo) { <img [src]="photo" alt="" (error)="photoFailed.set(true)" /> } @else { {{ initials() }} }
+                    </span>
                     <span class="tb-profile__text">
                         <span class="tb-profile__name">{{ username() }}</span>
                         <span class="tb-profile__role">{{ roleLabel() }}</span>
@@ -98,12 +100,15 @@
                     <i class="ri-arrow-down-s-line tb-profile__chev" aria-hidden="true"></i>
                 </button>
                 <div class="dropdown-menu dropdown-mega-xs dropdown-menu-end header-dropdown-menu border">
-                    <div class="d-flex gap-4 align-items-center justify-content-between mb-2 py-2 px-4 border rounded-2">
-                        <div class="min-w-0">
-                            <h6 class="mb-1 fs-14 text-truncate">{{ username() }}</h6>
-                            <small class="text-muted mb-0 d-block text-truncate">{{ userEmail() }}</small>
-                        </div>
-                        <span class="tb-avatar tb-avatar--lg" aria-hidden="true">{{ initials() }}</span>
+                    <!-- WHO IS SIGNED IN: initials, name, e-mail - one compact row. -->
+                    <div class="tb-acct">
+                        <span class="tb-avatar tb-avatar--lg" [class.has-photo]="!!photoUrl()" aria-hidden="true">
+                            @if (photoUrl(); as photo) { <img [src]="photo" alt="" (error)="photoFailed.set(true)" /> } @else { {{ initials() }} }
+                        </span>
+                        <span class="tb-acct__text">
+                            <span class="tb-acct__name" [title]="username()">{{ username() }}</span>
+                            <span class="tb-acct__mail" [title]="userEmail()">{{ userEmail() }}</span>
+                        </span>
                     </div>
 
                     <!--
@@ -131,28 +136,53 @@
                                 <i [class]="orgListOpen() ? 'ri-arrow-up-s-line tb-org__chev' : 'ri-arrow-down-s-line tb-org__chev'" aria-hidden="true"></i>
                             </button>
 
+                            <!-- THE LIST FLOATS OVER THE MENU, like a dropdown, with a search box on top.
+                                 It used to unfold in place and push Profile / Sign out far down. -->
                             @if (orgListOpen()) {
+                                <div class="tb-orgs__pop" role="dialog" aria-label="Choose an organisation">
+                                <div class="tb-orgs__search" (click)="$event.stopPropagation()">
+                                    <i class="ri-search-line" aria-hidden="true"></i>
+                                    <input type="text" inputmode="search" placeholder="Search organisations" aria-label="Search organisations"
+                                           autocomplete="off" [value]="orgQuery()" (input)="orgQuery.set($any($event.target).value)"
+                                           (keydown.escape)="orgListOpen.set(false)" />
+                                    <!-- ONE CLOSE MARK, AND IT WORKS: with text typed it clears the search;
+                                         with the box empty it closes the list. -->
+                                    <button type="button" class="tb-orgs__search-x" (click)="clearOrClose($event)"
+                                            [attr.aria-label]="orgQuery() ? 'Clear search' : 'Close organisation list'"
+                                            [title]="orgQuery() ? 'Clear search' : 'Close'">
+                                        <i class="ri-close-line" aria-hidden="true"></i>
+                                    </button>
+                                </div>
                                 <div class="tb-orgs__list">
                                     @if (loadingOrganisations()) {
                                         <p class="tb-orgs__note">Loading…</p>
                                     } @else if (selectableOrganisations().length === 0) {
                                         <p class="tb-orgs__note">No organisations are available to you yet.</p>
+                                    } @else if (filteredOrganisations().length === 0) {
+                                        <p class="tb-orgs__note">No organisation matches “{{ orgQuery() }}”.</p>
                                     } @else {
                                         <ul class="list-unstyled mb-0">
-                                            @for (option of selectableOrganisations(); track option.tenantId) {
+                                            @for (option of filteredOrganisations(); track option.tenantId) {
+                                                @let isCurrent = isActingInOrganisation() && option.name === currentOrganisation();
                                                 <li>
-                                                    <button type="button" class="tb-orgs__item"
+                                                    <button type="button" class="tb-orgs__item" [class.is-current]="isCurrent"
                                                             [disabled]="switchingTo() !== null"
+                                                            [attr.aria-current]="isCurrent ? 'true' : null"
+                                                            [title]="orgTitle(option)"
                                                             (click)="switchTo(option)">
+                                                        <span class="tb-orgs__item-mark" aria-hidden="true">{{ orgMark(option) }}</span>
                                                         <span class="tb-orgs__item-text">
                                                             <span class="tb-orgs__item-name">{{ option.name }}</span>
-                                                            <span class="tb-orgs__item-meta">{{ option.subdomain }} · {{ option.status }}</span>
-                                                            @if (!isOperable(option)) {
-                                                                <span class="tb-orgs__item-warn">Still onboarding — review only.</span>
-                                                            }
+                                                            <span class="tb-orgs__item-meta">{{ option.subdomain }}</span>
                                                         </span>
                                                         @if (switchingTo() === option.tenantId) {
-                                                            <i class="ri-loader-4-line"></i>
+                                                            <i class="ri-loader-4-line tb-orgs__item-end" aria-hidden="true"></i>
+                                                        } @else if (isCurrent) {
+                                                            <i class="ri-check-line tb-orgs__item-end tb-orgs__item-tick" aria-hidden="true"></i>
+                                                        } @else if (!isOperable(option)) {
+                                                            <span class="tb-orgs__item-tag is-review">Review only</span>
+                                                        } @else {
+                                                            <span class="tb-orgs__item-tag">{{ option.status }}</span>
                                                         }
                                                     </button>
                                                 </li>
@@ -172,6 +202,7 @@
                                         <i class="ri-building-2-line" aria-hidden="true"></i>
                                         <span>Manage organisations</span>
                                     </button>
+                                </div>
                                 </div>
                             }
                         </div>
@@ -213,6 +244,7 @@
                                     <i class="ri-question-line me-3"></i> Help center
                                 </a>
                             </li> -->
+                            <li class="tb-menu-sep" role="separator" aria-hidden="true"></li>
                             <!-- Sign-out is a button, not a link: it has to call the API so the
                                  server revokes the session and clears the HttpOnly refresh cookie.
                                  An <a href> would only change the URL and leave both alive. -->

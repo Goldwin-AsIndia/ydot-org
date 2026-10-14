@@ -434,3 +434,475 @@
 .tb .tb-menu-link.text-danger:focus-visible {
   background: color-mix(in srgb, #dc3545 8%, transparent);
 }
+
+/* =====================================================================================================
+   ACCOUNT MENU - REDESIGN
+   One rhythm for the whole menu: 36px rows, 13px text, 16px icons, 8px radius, hairline dividers.
+     who        avatar + name + e-mail in one compact row (no boxed card)
+     switcher   the current organisation as one row; its list: a letter mark, name, subdomain and one
+                small tag on the right (Active / Review only), a tick on the one you are in - one line
+                per organisation instead of three, so four fit without a scrollbar
+     menu       Profile, My Security | divider | Sign out, Sign out everywhere
+   ===================================================================================================== */
+.tb .pe-dropdown-mega .dropdown-menu.dropdown-mega-xs {
+  width: 18.5rem;
+  padding: calc(8px * var(--ui-scale, 1)) !important;
+  border-radius: calc(14px * var(--ui-scale, 1)) !important;
+}
+
+/* ---- who ---- */
+.tb-acct {
+  display: flex;
+  align-items: center;
+  gap: calc(10px * var(--ui-scale, 1));
+  padding: calc(6px * var(--ui-scale, 1)) calc(6px * var(--ui-scale, 1)) calc(10px * var(--ui-scale, 1));
+  margin-bottom: calc(8px * var(--ui-scale, 1));
+  border-bottom: 1px solid var(--tb-line);
+}
+
+.tb-acct .tb-avatar--lg {
+  --tb-avatar: calc(36px * var(--ui-scale, 1));
+  background-image: none !important;
+}
+
+.tb-acct__text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.25;
+}
+
+.tb-acct__name {
+  overflow: hidden;
+  color: var(--tb-ink);
+  font-size: calc(calc(13.5px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900) !important;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tb-acct__mail {
+  overflow: hidden;
+  color: var(--tb-muted);
+  font-size: calc(calc(11.5px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
+  font-weight: clamp(100, calc(400 + var(--fw-bias, 0)), 900) !important;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ---- switcher: current row ---- */
+.tb-orgs {
+  margin: 0 0 calc(6px * var(--ui-scale, 1));
+  padding-bottom: calc(6px * var(--ui-scale, 1));
+}
+
+.tb-orgs__current {
+  gap: calc(10px * var(--ui-scale, 1));
+  min-height: calc(44px * var(--ui-scale, 1));
+  padding: calc(6px * var(--ui-scale, 1)) calc(10px * var(--ui-scale, 1)) calc(6px * var(--ui-scale, 1)) calc(6px * var(--ui-scale, 1));
+  border-radius: calc(10px * var(--ui-scale, 1));
+  background: color-mix(in srgb, var(--theme-primary, #375c4c) 4%, #fff);
+}
+
+.tb-org__badge {
+  width: calc(30px * var(--ui-scale, 1));
+  height: calc(30px * var(--ui-scale, 1));
+  border: 0;
+  border-radius: calc(8px * var(--ui-scale, 1));
+  background: var(--theme-primary, #375c4c);
+  color: #fff;
+}
+
+.tb-org__label {
+  font-size: calc(calc(9.5px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
+  letter-spacing: 0.08em;
+}
+
+.tb-org__name {
+  font-size: calc(calc(13px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
+}
+
+/* ---- switcher: the list ---- */
+.tb-orgs__list {
+  max-height: calc(196px * var(--ui-scale, 1));
+  margin-top: calc(6px * var(--ui-scale, 1));
+  padding: calc(2px * var(--ui-scale, 1));
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--tb-line) transparent;
+}
+
+.tb-orgs__list li + li {
+  margin-top: 1px;
+}
+
+.tb-orgs__item {
+  gap: calc(10px * var(--ui-scale, 1));
+  min-height: calc(42px * var(--ui-scale, 1));
+  padding: calc(5px * var(--ui-scale, 1)) calc(8px * var(--ui-scale, 1)) calc(5px * var(--ui-scale, 1)) calc(6px * var(--ui-scale, 1));
+  border-radius: calc(8px * var(--ui-scale, 1));
+}
+
+.tb-orgs__item.is-current {
+  background: color-mix(in srgb, var(--theme-primary, #375c4c) 7%, transparent);
+}
+
+.tb-orgs__item:disabled {
+  cursor: default;
+  opacity: 0.7;
+}
+
+.tb-orgs__item-mark {
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  width: calc(26px * var(--ui-scale, 1));
+  height: calc(26px * var(--ui-scale, 1));
+  border: 1px solid var(--tb-line);
+  border-radius: calc(7px * var(--ui-scale, 1));
+  background: #fff;
+  color: var(--tb-ink);
+  font-size: calc(calc(11.5px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
+  font-weight: clamp(100, calc(700 + var(--fw-bias, 0)), 900) !important;
+  line-height: 1 !important;
+  text-transform: uppercase;
+}
+
+.tb-orgs__item.is-current .tb-orgs__item-mark {
+  border-color: var(--theme-primary, #375c4c);
+  color: var(--theme-primary, #375c4c);
+}
+
+.tb-orgs__item-text {
+  line-height: 1.2;
+}
+
+.tb-orgs__item-name {
+  font-size: calc(calc(13px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900) !important;
+}
+
+.tb-orgs__item-meta {
+  overflow: hidden;
+  color: var(--tb-muted);
+  font-size: calc(calc(11px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tb-orgs__item-tag {
+  flex: none;
+  padding: calc(2px * var(--ui-scale, 1)) calc(7px * var(--ui-scale, 1));
+  border: 1px solid color-mix(in srgb, #1b7648 35%, transparent);
+  border-radius: calc(6px * var(--ui-scale, 1));
+  color: #1b7648;
+  font-size: calc(calc(10.5px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900) !important;
+  line-height: 1.3 !important;
+  text-transform: capitalize;
+  white-space: nowrap;
+}
+
+.tb-orgs__item-tag.is-review {
+  border-color: color-mix(in srgb, #b45309 35%, transparent);
+  color: #b45309;
+  text-transform: none;
+}
+
+.tb-orgs__item-end {
+  flex: none;
+  font-size: calc(calc(16px * var(--ui-scale, 1)) * var(--ui-text-scale, 1));
+  line-height: 1;
+  color: var(--tb-muted);
+}
+
+.tb-orgs__item-tick {
+  color: var(--theme-primary, #375c4c);
+}
+
+/* ---- switcher: foot links - the same row style as the menu below ---- */
+.tb-orgs__foot {
+  gap: 1px;
+  margin-top: calc(6px * var(--ui-scale, 1));
+  padding-top: calc(6px * var(--ui-scale, 1));
+  border-top: 1px solid var(--tb-line);
+}
+
+.tb-orgs__link {
+  min-height: calc(34px * var(--ui-scale, 1));
+  gap: calc(10px * var(--ui-scale, 1));
+  padding: calc(6px * var(--ui-scale, 1)) calc(10px * var(--ui-scale, 1));
+  color: var(--tb-muted);
+  font-size: calc(calc(12.5px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
+}
+
+.tb-orgs__link > i:first-child {
+  width: calc(16px * var(--ui-scale, 1));
+  font-size: calc(calc(15px * var(--ui-scale, 1)) * var(--ui-text-scale, 1));
+  text-align: center;
+}
+
+.tb-orgs__link > span {
+  font-size: inherit !important;
+}
+
+.tb-orgs__link:hover:not(:disabled) {
+  color: var(--tb-ink);
+}
+
+/* ---- menu rows ---- */
+.tb .tb-menu-link {
+  gap: calc(10px * var(--ui-scale, 1));
+  min-height: calc(36px * var(--ui-scale, 1));
+  padding: calc(7px * var(--ui-scale, 1)) calc(10px * var(--ui-scale, 1)) !important;
+  border-radius: calc(8px * var(--ui-scale, 1));
+  font-size: calc(calc(13px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
+}
+
+.tb .tb-menu-link > i {
+  width: calc(16px * var(--ui-scale, 1));
+  font-size: calc(calc(16px * var(--ui-scale, 1)) * var(--ui-text-scale, 1));
+}
+
+.tb .tb-menu-link.text-danger {
+  color: #c0392b !important;
+}
+
+.tb-menu-sep {
+  height: 1px;
+  margin: calc(6px * var(--ui-scale, 1)) calc(4px * var(--ui-scale, 1));
+  padding: 0 !important;
+  background: var(--tb-line);
+  list-style: none;
+}
+
+
+/* =====================================================================================================
+   ORGANISATION SWITCHER AS A DROPDOWN
+   The list floats under the "Working inside" row (it no longer unfolds in place and pushes the menu
+   down), with a search box on top, the list, then Leave / Manage organisations.
+   ===================================================================================================== */
+.tb-orgs {
+  position: relative;
+}
+
+.tb-orgs__pop {
+  position: absolute;
+  z-index: 30;
+  top: calc(100% - calc(2px * var(--ui-scale, 1)));
+  left: 0;
+  right: 0;
+  display: flex;
+  flex-direction: column;
+  padding: calc(6px * var(--ui-scale, 1));
+  border: 1px solid var(--tb-line);
+  border-radius: calc(12px * var(--ui-scale, 1));
+  background: #fff;
+  box-shadow: 0 16px 34px -14px rgba(20, 30, 25, 0.28);
+  animation: tb-orgs-in 0.14s ease-out;
+}
+
+@keyframes tb-orgs-in {
+  from { opacity: 0; transform: translateY(calc(-4px * var(--ui-scale, 1))); }
+}
+
+.tb-orgs__search {
+  position: relative;
+  display: flex;
+  align-items: center;
+  margin-bottom: calc(4px * var(--ui-scale, 1));
+}
+
+.tb-orgs__search > i {
+  position: absolute;
+  left: calc(10px * var(--ui-scale, 1));
+  color: var(--tb-muted);
+  font-size: calc(calc(14px * var(--ui-scale, 1)) * var(--ui-text-scale, 1));
+  line-height: 1;
+  pointer-events: none;
+}
+
+.tb-orgs__search input {
+  width: 100%;
+  height: calc(34px * var(--ui-scale, 1)) !important;
+  min-height: 0 !important;
+  margin: 0;
+  padding: 0 calc(30px * var(--ui-scale, 1)) 0 calc(30px * var(--ui-scale, 1)) !important;
+  border: 1px solid var(--tb-line) !important;
+  border-radius: calc(8px * var(--ui-scale, 1)) !important;
+  background: color-mix(in srgb, var(--theme-primary, #375c4c) 3%, #fff) !important;
+  color: var(--tb-ink);
+  outline: none;
+  box-shadow: none !important;
+  font-size: calc(calc(12.5px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
+  font-weight: clamp(100, calc(400 + var(--fw-bias, 0)), 900) !important;
+}
+
+.tb-orgs__search input::-webkit-search-cancel-button {
+  display: none;
+}
+
+.tb-orgs__search input:focus {
+  border-color: var(--theme-primary, #375c4c) !important;
+  background: #fff !important;
+}
+
+.tb-orgs__search-x {
+  position: absolute;
+  right: calc(6px * var(--ui-scale, 1));
+  display: grid;
+  place-items: center;
+  width: calc(22px * var(--ui-scale, 1));
+  height: calc(22px * var(--ui-scale, 1));
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--tb-muted);
+  cursor: pointer;
+}
+
+.tb-orgs__search-x:hover {
+  color: #c0392b;
+}
+
+.tb-orgs__pop .tb-orgs__list {
+  max-height: calc(212px * var(--ui-scale, 1));
+  margin-top: 0;
+}
+
+.tb-orgs__pop .tb-orgs__foot {
+  margin-top: calc(4px * var(--ui-scale, 1));
+}
+
+/* the account avatar: initials always visible (the theme blanked them) */
+.tb-acct .tb-avatar,
+.tb-profile .tb-avatar {
+  color: #fff !important;
+  font-size: calc(calc(13px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
+  font-weight: clamp(100, calc(600 + var(--fw-bias, 0)), 900) !important;
+  line-height: 1 !important;
+  text-indent: 0 !important;
+}
+
+
+/* SEARCH BOX: no stray close mark. It is a plain text box now (a type="search" box picked up the
+   theme's / browser's own clear "x", shown even while empty); our own small clear button appears
+   only once something is typed. */
+.tb-orgs__search input {
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  background-image: none !important;
+}
+
+.tb-orgs__search input::-webkit-search-decoration,
+.tb-orgs__search input::-webkit-search-cancel-button,
+.tb-orgs__search input::-webkit-search-results-button,
+.tb-orgs__search input::-ms-clear {
+  display: none !important;
+  -webkit-appearance: none !important;
+}
+
+.tb-orgs__search-x {
+  right: calc(7px * var(--ui-scale, 1));
+  width: calc(20px * var(--ui-scale, 1));
+  height: calc(20px * var(--ui-scale, 1));
+  border-radius: calc(6px * var(--ui-scale, 1));
+  background: color-mix(in srgb, var(--tb-muted) 10%, transparent);
+}
+
+.tb-orgs__search-x i {
+  font-size: calc(calc(13px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
+  line-height: 1 !important;
+}
+
+.tb-orgs__search-x:hover {
+  background: color-mix(in srgb, #c0392b 10%, transparent);
+}
+
+
+/* AVATAR: a picture OR initials, never both. The theme's stock photo behind every avatar is switched
+   off; a real picture (photoUrl in the TS) fills the circle, otherwise the initials sit on the theme
+   colour. */
+.tb .tb-avatar {
+  overflow: hidden;
+  background-image: none !important;
+  background-color: var(--theme-primary, #375c4c) !important;
+  color: #fff !important;
+  text-indent: 0 !important;
+}
+
+.tb .tb-avatar.has-photo {
+  background-color: transparent !important;
+}
+
+.tb .tb-avatar img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+}
+
+/* SEARCH BOX: no close mark at all - nothing of ours, the browser's or the theme's. */
+.tb-orgs__search::before,
+.tb-orgs__search::after,
+.tb-orgs__search input::before,
+.tb-orgs__search input::after {
+  content: none !important;
+  display: none !important;
+}
+
+/* SEARCH BOX CLOSE MARK - final word. Only our button draws an x: every background picture the
+   theme may paint on the box is switched off, the text stops short of the button, and the button is
+   centred on the box's own height (top 50% + translate), so it lines up whatever the scale. */
+.tb .tb-orgs__search input,
+.tb .tb-orgs__search input:focus {
+  height: calc(34px * var(--ui-scale, 1)) !important;
+  padding: 0 calc(34px * var(--ui-scale, 1)) 0 calc(30px * var(--ui-scale, 1)) !important;
+  background-image: none !important;
+  font-size: calc(calc(12.5px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
+  line-height: calc(32px * var(--ui-scale, 1)) !important;
+}
+
+.tb .tb-orgs__search > i {
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.tb .tb-orgs__search .tb-orgs__search-x {
+  position: absolute;
+  top: 50%;
+  right: calc(6px * var(--ui-scale, 1));
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: calc(22px * var(--ui-scale, 1));
+  height: calc(22px * var(--ui-scale, 1));
+  min-width: 0 !important;
+  min-height: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: calc(6px * var(--ui-scale, 1));
+  background: transparent !important;
+  box-shadow: none !important;
+  color: var(--tb-muted);
+  line-height: 1 !important;
+  transform: translateY(-50%);
+  cursor: pointer;
+}
+
+.tb .tb-orgs__search .tb-orgs__search-x i {
+  display: block;
+  font-size: calc(calc(15px * var(--ui-scale, 1)) * var(--ui-text-scale, 1)) !important;
+  line-height: 1 !important;
+}
+
+.tb .tb-orgs__search .tb-orgs__search-x:hover,
+.tb .tb-orgs__search .tb-orgs__search-x:focus-visible {
+  background: color-mix(in srgb, #c0392b 10%, transparent) !important;
+  color: #c0392b;
+  outline: none;
+}

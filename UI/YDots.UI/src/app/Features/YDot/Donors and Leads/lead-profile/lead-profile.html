@@ -1,0 +1,235 @@
+<!-- LEAD PROFILE - one lead, everything known about it. Renders inside the host screen (app shell stays);
+     see lead-profile.ts for the inputs and events. -->
+@let lead = leadInput();
+@let d = detail();
+<div class="lp-page">
+  <section class="lp-sheet" aria-labelledby="lp-name">
+
+    <header class="lp-mast">
+      <button type="button" class="btn btn-outline-secondary btn-sm lp-back" (click)="back.emit()" aria-label="Back to the lead queue">
+        <i class="ri-arrow-left-line" aria-hidden="true"></i> Lead queue
+      </button>
+      <div class="lp-who">
+        <h1 id="lp-name" class="lp-name">{{ lead.name }}</h1>
+        <p class="lp-meta">
+          <span class="lp-stage" [attr.data-stage]="lead.stage"><span class="lp-dot" aria-hidden="true"></span>{{ lead.stage }}</span>
+          <span class="lp-sep" aria-hidden="true"></span>
+          <button type="button" class="lp-ref" (click)="copyValue('id', lead.reference)" [title]="'Copy ' + lead.reference">
+            {{ lead.reference }}<i [class]="copiedField() === 'id' ? 'ri-check-line' : 'ri-file-copy-line'" aria-hidden="true"></i>
+          </button>
+          @if (d?.isDraft) {
+            <span class="lp-sep" aria-hidden="true"></span><span class="lp-draft">Draft</span>
+          }
+        </p>
+      </div>
+      @if (d) {
+        <div class="lp-stamp">
+          <span class="lp-stamp-t"><span class="lp-lab">Captured</span><span class="lp-val">{{ whenDateTime(d.createdAtUtc) }}</span></span>
+          <span class="lp-stamp-t"><span class="lp-lab">Last updated</span><span class="lp-val">{{ whenDateTime(d.updatedAtUtc) }}</span></span>
+        </div>
+      }
+      <div class="lp-acts">
+        @if (canRoute() && lead.hasOwner) {
+          <button type="button" class="btn btn-outline-secondary btn-sm" (click)="reassign.emit()"><i class="ri-user-shared-line" aria-hidden="true"></i> Reassign</button>
+        }
+        @if (permissions().schedule && !lead.converted) {
+          <button type="button" class="btn btn-outline-secondary btn-sm" (click)="schedule.emit()"><i class="ri-calendar-event-line" aria-hidden="true"></i> Schedule follow-up</button>
+        }
+        @if (permissions().communicate) {
+          <button type="button" class="btn btn-primary btn-sm" (click)="communicate.emit()"><i class="ri-chat-3-line" aria-hidden="true"></i> Communicate</button>
+        }
+      </div>
+      @if (detailState() === 'loading') { <span class="lp-loading" aria-hidden="true"></span> }
+    </header>
+
+    <div class="lp-vitals">
+      <span class="lp-vital">
+        <span class="lp-health">
+          <svg viewBox="0 0 36 36" aria-hidden="true">
+            <circle cx="18" cy="18" r="15.5" class="lp-health-track"></circle>
+            <circle cx="18" cy="18" r="15.5" class="lp-health-val" pathLength="100" [attr.stroke-dasharray]="lead.healthScore + ' 100'"
+                    [attr.data-band]="healthClass(lead.healthBand)"></circle>
+          </svg>
+          <b>{{ lead.healthScore }}</b>
+        </span>
+        <span class="lp-vital-t"><span class="lp-cap">Health</span><span class="lp-vital-v">{{ lead.healthBand || 'Score' }}</span></span>
+      </span>
+      <span class="lp-vital">
+        <span class="lp-vital-g lp-temp" [attr.data-temp]="lead.temperature"><i class="ri-temp-hot-line" aria-hidden="true"></i></span>
+        <span class="lp-vital-t"><span class="lp-cap">Temperature</span><span class="lp-vital-v lp-temp" [attr.data-temp]="lead.temperature">{{ lead.temperature || '—' }}</span></span>
+      </span>
+      <span class="lp-vital">
+        <span class="lp-vital-g"><span class="lp-bars lp-bars" aria-hidden="true" [attr.data-level]="potentialLevel(lead.donationPotential)"><span></span><span></span><span></span></span></span>
+        <span class="lp-vital-t"><span class="lp-cap">Potential</span><span class="lp-vital-v">{{ lead.donationPotential || '—' }}</span></span>
+      </span>
+      <span class="lp-vital">
+        <span class="lp-vital-g"><i class="ri-timer-line" aria-hidden="true"></i></span>
+        <span class="lp-vital-t"><span class="lp-cap">Response clock</span><span class="lp-vital-v">{{ d ? displayValue(d.slaState) : '—' }}</span></span>
+      </span>
+      <span class="lp-vital">
+        <span class="lp-vital-g"><i class="ri-user-star-line" aria-hidden="true"></i></span>
+        <span class="lp-vital-t"><span class="lp-cap">Owner</span><span class="lp-vital-v" [class.lp-none]="!lead.hasOwner">{{ displayValue(lead.owner) }}</span></span>
+      </span>
+    </div>
+
+    @if (detailState() === 'error') {
+      <p class="lp-alert" role="alert">
+        <i class="ri-error-warning-line" aria-hidden="true"></i>
+        The full record could not be loaded, so only the queue fields are shown.
+        <button type="button" class="lp-mini" (click)="loadDetail(lead.id)">Try again</button>
+      </p>
+    }
+
+    <div class="lp-cols">
+      <!-- ---- identity, contact, notes ---- -->
+      <section class="lp-col" aria-labelledby="lp-h-id">
+        <h2 id="lp-h-id"><i class="ri-contacts-book-line" aria-hidden="true"></i>Identity &amp; contact</h2>
+        <dl class="lp-list">
+          <div><dt class="lp-lab">Full name</dt><dd class="lp-val">{{ d ? displayValue((d.firstName + ' ' + (d.lastName ?? '')).trim()) : lead.name }}</dd></div>
+          <div><dt class="lp-lab">Display name</dt><dd class="lp-val">{{ d ? displayValue(d.displayName) : lead.name }}</dd></div>
+          <div>
+            <dt class="lp-lab">Phone</dt>
+            <dd class="lp-val lp-mono">
+              <span class="lp-trunc">{{ displayValue(lead.mobile) }}</span>
+              @if (lead.mobile) {
+                <button type="button" class="lp-copy" (click)="copyValue('mobile', lead.mobile)" title="Copy phone number" aria-label="Copy phone number"><i [class]="copiedField() === 'mobile' ? 'ri-check-line' : 'ri-file-copy-line'" aria-hidden="true"></i></button>
+              }
+            </dd>
+          </div>
+          <div>
+            <dt class="lp-lab">Other numbers</dt>
+            <dd class="lp-val lp-mono">
+              @if (d?.alternateMobileNumbers?.length) {
+                <span class="lp-stack">@for (n of d!.alternateMobileNumbers; track n) { <span>{{ n }}</span> }</span>
+              } @else { - }
+            </dd>
+          </div>
+          <div>
+            <dt class="lp-lab">E-mail</dt>
+            <dd class="lp-val">
+              <span class="lp-trunc" [title]="displayValue(lead.email)">{{ displayValue(lead.email) }}</span>
+              @if (lead.email) {
+                <button type="button" class="lp-copy" (click)="copyValue('email', lead.email)" title="Copy e-mail address" aria-label="Copy e-mail address"><i [class]="copiedField() === 'email' ? 'ri-check-line' : 'ri-file-copy-line'" aria-hidden="true"></i></button>
+              }
+            </dd>
+          </div>
+          <div><dt class="lp-lab">Language</dt><dd class="lp-val">{{ displayValue(lead.language) }}</dd></div>
+          <div><dt class="lp-lab">Best time to call</dt><dd class="lp-val lp-mono">{{ d ? contactTime(d.preferredContactTimeUtc) : '-' }}</dd></div>
+        </dl>
+        <h3 class="lp-sub">Notes from capture</h3>
+        <p class="lp-notes" [class.lp-empty]="!d?.notes">{{ d ? (d.notes || 'No notes were entered.') : '-' }}</p>
+        @if (lead.masked) {
+          <p class="lp-note"><i class="ri-lock-line" aria-hidden="true"></i>Contact details and address are masked for your role.</p>
+        }
+      </section>
+
+      <!-- ---- origin, ownership, location ---- -->
+      <section class="lp-col" aria-labelledby="lp-h-origin">
+        <h2 id="lp-h-origin"><i class="ri-route-line" aria-hidden="true"></i>Origin &amp; ownership</h2>
+        <dl class="lp-list">
+          <div><dt class="lp-lab">Campaign</dt><dd class="lp-val">{{ displayValue(lead.campaign) }}</dd></div>
+          <div><dt class="lp-lab">Lead source</dt><dd class="lp-val">{{ displayValue(lead.source) }}</dd></div>
+          <div><dt class="lp-lab">Owner</dt><dd class="lp-val" [class.lp-none]="!lead.hasOwner">{{ displayValue(lead.owner) }}</dd></div>
+          <div><dt class="lp-lab">Team</dt><dd class="lp-val">{{ d ? displayValue(d.teamCode) : '-' }}</dd></div>
+          @if (!lead.converted && permissions().communicate) {
+            <div>
+              <dt class="lp-lab">Donation link</dt>
+              <dd class="lp-val">
+                <span class="lp-trunc" [title]="donationLink()">{{ donationLink() }}</span>
+                <button type="button" class="lp-copy" (click)="copyValue('link', donationLink())" title="Copy the donation link for this lead" aria-label="Copy the donation link for this lead"><i [class]="copiedField() === 'link' ? 'ri-check-line' : 'ri-file-copy-line'" aria-hidden="true"></i></button>
+              </dd>
+            </div>
+          }
+          @if (d?.duplicateCandidateSummary) {
+            <div class="lp-block"><dt class="lp-lab">Possible duplicate</dt><dd class="lp-val">{{ d!.duplicateCandidateSummary }}</dd></div>
+          }
+        </dl>
+        <h3 class="lp-sub">Location</h3>
+        <dl class="lp-list">
+          <div><dt class="lp-lab">Country</dt><dd class="lp-val">{{ d ? displayValue(d.country) : '-' }}</dd></div>
+          <div><dt class="lp-lab">City</dt><dd class="lp-val">{{ d ? displayValue(d.city) : '-' }}</dd></div>
+          <div><dt class="lp-lab">Region code</dt><dd class="lp-val lp-mono">{{ d ? displayValue(d.geographyCode) : '-' }}</dd></div>
+          <div class="lp-block"><dt class="lp-lab">Address</dt><dd class="lp-val">{{ d ? displayValue(d.addressLine) : '-' }}</dd></div>
+        </dl>
+      </section>
+
+      <!-- ---- engagement and lifecycle ---- -->
+      <section class="lp-col" aria-labelledby="lp-h-eng">
+        <h2 id="lp-h-eng"><i class="ri-pulse-line" aria-hidden="true"></i>Engagement &amp; lifecycle</h2>
+        <dl class="lp-list">
+          <div><dt class="lp-lab">Last outcome</dt><dd class="lp-val">{{ displayValue(lead.lastContactOutcome) }}</dd></div>
+          <div><dt class="lp-lab">Last contacted</dt><dd class="lp-val lp-mono">{{ d ? whenDateTime(d.lastContactedAtUtc) : '-' }}</dd></div>
+          @if (lead.lastActivity && lead.lastActivity !== lead.lastContactOutcome) {
+            <div><dt class="lp-lab">Last activity</dt><dd class="lp-val">{{ lead.lastActivity }}</dd></div>
+          }
+          <div class="lp-next"><dt class="lp-lab">Next follow-up</dt><dd class="lp-val lp-mono">{{ lead.nextFollowUp || 'Not planned' }}</dd></div>
+          <div><dt class="lp-lab">Planned action</dt><dd class="lp-val">{{ d ? displayValue(d.nextAction) : '-' }}</dd></div>
+        </dl>
+        <h3 class="lp-sub">Lifecycle</h3>
+        <dl class="lp-list">
+          <div><dt class="lp-lab">Accepted</dt><dd class="lp-val lp-mono">{{ d ? whenDateTime(d.acceptedAtUtc) : '-' }}</dd></div>
+          <div><dt class="lp-lab">Qualified</dt><dd class="lp-val lp-mono">{{ d ? whenDateTime(d.qualifiedAtUtc) : '-' }}</dd></div>
+          <div><dt class="lp-lab">Converted</dt><dd class="lp-val lp-mono">{{ d ? whenDateTime(d.convertedAtUtc) : '-' }}</dd></div>
+          @if (d?.closureReason) {
+            <div class="lp-block"><dt class="lp-lab">Closure reason</dt><dd class="lp-val">{{ d!.closureReason }}</dd></div>
+          }
+          <!-- Closing a lead: offered to whoever the server lists Close for on this lead. -->
+          @if (canClose()) {
+            <div class="lp-close">
+              <dt class="lp-lab">Close lead</dt>
+              <dd class="lp-val">
+                <button type="button" class="lp-mini" [disabled]="closing()" (click)="closeLead.emit('Lost')">Mark lost</button>
+                <button type="button" class="lp-mini" [disabled]="closing()" (click)="closeLead.emit('Dormant')">Mark dormant</button>
+              </dd>
+            </div>
+          }
+        </dl>
+      </section>
+    </div>
+
+    <!-- ---- consent register: only the channels the person opted in to ---- -->
+    <section class="lp-consent" aria-labelledby="lp-h-consent">
+      <div class="lp-consent-head">
+        <h2 id="lp-h-consent"><i class="ri-shield-check-line" aria-hidden="true"></i>Consent given</h2>
+        @if (d) {
+          <span class="lp-cstate" [attr.data-ink]="consentTone(d.consentState)"><span class="lp-dot" aria-hidden="true"></span>{{ displayValue(d.consentState) }}</span>
+          <span class="lp-ccount">{{ granted().length }} of 4 channels opted in</span>
+          <span class="lp-cevid">
+            <span class="lp-lab">Evidence</span>
+            @if (d.isEvidenceMasked) {
+              <span class="lp-val"><i class="ri-lock-line" aria-hidden="true"></i> Withheld for your role</span>
+            } @else {
+              <span class="lp-val lp-mono">{{ displayValue(d.consentEvidenceReference) }}</span>
+              @if (d.consentEvidenceReference) {
+                <button type="button" class="lp-copy" (click)="copyValue('evidence', d.consentEvidenceReference)" title="Copy evidence reference" aria-label="Copy evidence reference"><i [class]="copiedField() === 'evidence' ? 'ri-check-line' : 'ri-file-copy-line'" aria-hidden="true"></i></button>
+              }
+            }
+          </span>
+        }
+      </div>
+      @if (!d) {
+        <p class="lp-empty-row">Loading the consent record…</p>
+      } @else if (granted().length === 0) {
+        <p class="lp-empty-row"><i class="ri-forbid-2-line" aria-hidden="true"></i>This person has not opted in to any channel, so nothing can be sent to them.</p>
+      } @else {
+        <div class="lp-reg" role="table" aria-label="Channels the person opted in to">
+          <div class="lp-reg-row lp-reg-cap" role="row">
+            <span role="columnheader">Channel</span><span role="columnheader">Decision</span><span role="columnheader">Status</span>
+            <span role="columnheader">Notice version</span><span role="columnheader">Effective</span><span role="columnheader">Expires</span>
+          </div>
+          @for (row of granted(); track row.label) {
+            <div class="lp-reg-row" role="row">
+              <span class="lp-reg-ch" role="cell"><i [class]="row.glyph" aria-hidden="true"></i>{{ row.label }}</span>
+              <span class="lp-reg-ok" role="cell"><span class="lp-dot" aria-hidden="true"></span>Opted in</span>
+              <span role="cell" data-l="Status">{{ displayValue(row.record.status) }}</span>
+              <span class="lp-mono" role="cell" data-l="Notice version">{{ displayValue(row.record.noticeVersion) }}</span>
+              <span class="lp-mono" role="cell" data-l="Effective">{{ whenDate(row.record.effectiveAtUtc) }}</span>
+              <span class="lp-mono" role="cell" data-l="Expires">{{ row.record.expiryAtUtc ? whenDate(row.record.expiryAtUtc) : 'No expiry' }}</span>
+            </div>
+          }
+        </div>
+      }
+    </section>
+    <span class="visually-hidden" role="status">{{ copiedField() ? 'Copied to clipboard' : '' }}</span>
+  </section>
+</div>
