@@ -2,6 +2,7 @@ import { CommonModule } from '@angular/common';
 import { Component, computed, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { PageHeader } from '../../../../Shared/components/page-header/page-header';
+import { formatMoney } from '../../../../Shared/services/money-format';
 
 /**
  * SCR-UX-005 — Standard record detail.
@@ -379,8 +380,9 @@ export class StandardRecordDetailComponent {
 
   // ================= Formatting helpers =================
 
+  /** A donation's figures, exact to the paisa, in the platform's money format. */
   protected formatAmount(value: number): string {
-    return value.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    return formatMoney(value ?? 0, null, { style: 'exact' });
   }
   protected stepClass(state: StepState): string {
     switch (state) {

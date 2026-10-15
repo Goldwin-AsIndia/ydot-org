@@ -15,6 +15,7 @@ import { GeoMasterService } from '../../../../Shared/services/geo-master.service
 import { MasterLookup } from '../../../../Shared/models/global-master.model';
 import { PageHeader } from '../../../../Shared/components/page-header/page-header';
 import { nowLabel, viewerTimeZone } from '../../../../Shared/services/clock';
+import { currencyMark, formatMoney } from '../../../../Shared/services/money-format';
 
 /**
  * One row of a controlled catalogue: the API identifier the server wants, and the text a
@@ -335,20 +336,16 @@ export class CampaignWizardComponent {
     () => this.currencyLabel().split('—')[0]?.trim() ?? '',
   );
 
+  /** The amount fields' prefix: "₹" or "INR", per the platform's money format. */
+  protected readonly currencyPrefix = computed(() => (this.currencyCode() ? currencyMark(this.currencyCode()) : ''));
+
   /** The campaign amount as it reads on the summary and the review recap. */
   protected readonly campaignAmountLabel = computed(() => {
     if (!this.campaignAmountValid()) {
       return '—';
     }
 
-    const formatted = this.campaignAmountValue().toLocaleString(undefined, {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    });
-
-    const code = this.currencyCode();
-
-    return code ? `${code} ${formatted}` : formatted;
+    return formatMoney(this.campaignAmountValue(), this.currencyCode() || null);
   });
 
   // --- Target amount — what the campaign aims to raise in total. ---
@@ -391,12 +388,7 @@ export class CampaignWizardComponent {
     if (!this.targetAmountValid()) {
       return '—';
     }
-    const formatted = this.targetAmountValue().toLocaleString(undefined, {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    });
-    const code = this.currencyCode();
-    return code ? `${code} ${formatted}` : formatted;
+    return formatMoney(this.targetAmountValue(), this.currencyCode() || null);
   });
 
   /**

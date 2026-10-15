@@ -11,6 +11,7 @@ import { authInterceptor } from './Shared/interceptors/auth.interceptor';
 import { ThemeColorService } from './Shared/theme/theme-color.service';
 import { CardToneService } from './Shared/theme/card-tone.service';
 import { AuthSessionService } from './Shared/services/auth-session.service';
+import { MoneyFormatService } from './Shared/services/money-format.service';
 
 export const appConfig: ApplicationConfig = {
   providers: [
@@ -22,10 +23,15 @@ export const appConfig: ApplicationConfig = {
     // AuthSessionService for a reason of its own: a page reloaded while signed in has to pick its
     // idle clock up again at once. Started only by a sign-in, the clock stood still after every
     // reload and asked people who were working for their password.
+    //
+    // MoneyFormatService so the platform's money format (Indian grouping, symbol or code, the
+    // currency master's decimals) is being fetched before the first amount is drawn. It does not
+    // hold the start-up: the last answer this browser saw, or the defaults, apply until it lands.
     provideAppInitializer(() => {
       inject(ThemeColorService);
       inject(CardToneService);
       inject(AuthSessionService);
+      inject(MoneyFormatService);
     }),
 
     // withComponentInputBinding lets a route parameter such as :token arrive as an @Input on the

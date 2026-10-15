@@ -11,7 +11,7 @@
     </div>
     <dl class="cn-stats">
       <div class="cn-stat"><dt>Numbers verified</dt><dd class="cn-serif">{{ n(verified()) }}</dd></div>
-      <div class="cn-stat"><dt>On WhatsApp</dt><dd class="cn-serif">{{ n(onWhatsApp()) }}<small>ready in Wati</small></dd></div>
+      <div class="cn-stat"><dt>On WhatsApp</dt><dd class="cn-serif">{{ n(onWhatsApp()) }}<small>ready to pick</small></dd></div>
       <div class="cn-stat"><dt>Jobs run</dt><dd class="cn-serif">{{ n(jobsRun()) }}</dd></div>
     </dl>
   </header>
@@ -125,11 +125,14 @@
         <aside class="cn-flow" aria-label="What happens next">
           <p class="cn-label">What happens next</p>
           <ol class="cn-flow-list">
-            <li><span class="cn-flow-mark"><i class="ph-duotone ph-text-aa" aria-hidden="true"></i></span><div><b>Numbers are extracted</b><small>Names and other text are ignored. Every number gets a leading +, and Indian numbers become +91.</small></div></li>
+            <li><span class="cn-flow-mark"><i class="ph-duotone ph-text-aa" aria-hidden="true"></i></span><div><b>Numbers are extracted</b><small>Every number gets a leading +, and Indian numbers become +91. A name in a Name column, or beside a number, is kept so a message can greet each person by name.</small></div></li>
             <li><span class="cn-flow-mark"><i class="ph-duotone ph-files" aria-hidden="true"></i></span><div><b>Every sheet is counted</b><small>Excel files are read sheet by sheet, so you see the total for each.</small></div></li>
             <li><span class="cn-flow-mark"><i class="ph-duotone ph-copy" aria-hidden="true"></i></span><div><b>Repeats are caught</b><small>Duplicates, and numbers you already checked, are recognised and never charged twice.</small></div></li>
-            <li><span class="cn-flow-mark"><i class="ph-duotone ph-paper-plane-tilt" aria-hidden="true"></i></span><div><b>Valid numbers go to Wati</b><small>Once the check finishes, everyone on WhatsApp is ready to message.</small></div></li>
+            <li><span class="cn-flow-mark"><i class="ph-duotone ph-hand-pointing" aria-hidden="true"></i></span><div><b>You choose who to message</b><small>Nobody is messaged by the check. Valid numbers wait on WhatsApp Messages, where you pick the people a message is for.</small></div></li>
           </ol>
+          @if (billableMinimum() > 0) {
+            <p class="cn-flow-note"><i class="ph-duotone ph-info" aria-hidden="true"></i> CheckNumber.ai charges for at least {{ n(billableMinimum()) }} numbers per check, so larger lists get full value from each check.</p>
+          }
           <table class="cn-eg">
             <caption>How a number is rewritten</caption>
             <tbody>
@@ -159,18 +162,24 @@
             <div><dt>Estimated cost</dt><dd class="cn-serif">{{ money(estimate()) }}</dd></div>
           </dl>
           <div class="cn-summary-act">
-            <button type="button" class="btn btn-primary btn-sm" [disabled]="!canStart(d) || starting()" (click)="start()">
-              <i class="ph-duotone ph-lightning" aria-hidden="true"></i>
-              @if (starting()) { Uploading… } @else if (toCheck() > 0) { Start check } @else { Build report }
-            </button>
+            @if (canStart(d)) {
+              <button type="button" class="btn btn-primary btn-sm" (click)="start()">
+                <i class="ph-duotone ph-lightning" aria-hidden="true"></i>
+                @if (starting()) { Uploading… } @else if (toCheck() > 0) { Start check } @else { Build report }
+              </button>
+            }
             <button type="button" class="cn-link" (click)="discard()">Cancel</button>
           </div>
           @if (problem(); as message) {
             <p class="cn-alert cn-alert--bad cn-summary-warn" role="alert"><i class="ph-duotone ph-warning-circle" aria-hidden="true"></i><span><b>The check was not started.</b> {{ message }}</span></p>
-          } @else if (!canStart(d)) {
+          } @else if (!hasNumbers(d)) {
             <p class="cn-alert cn-alert--bad cn-summary-warn" role="alert"><i class="ph-duotone ph-warning-circle" aria-hidden="true"></i><span>No valid numbers were found. Check the “Invalid lines” tab, or upload another file.</span></p>
+          } @else if (belowMinimum()) {
+            <p class="cn-alert cn-alert--bad cn-summary-warn" role="alert"><i class="ph-duotone ph-warning-circle" aria-hidden="true"></i><span>This file has {{ n(toCheck()) }} new {{ toCheck() === 1 ? 'number' : 'numbers' }} to check; checks here start at {{ n(minimumNumbers()) }}. Add more numbers to the file (numbers already checked are free), then upload it again.</span></p>
+          } @else if (belowBillable()) {
+            <p class="cn-alert cn-alert--info cn-summary-warn" role="note"><i class="ph-duotone ph-info" aria-hidden="true"></i><span>CheckNumber.ai charges for at least {{ n(billableMinimum()) }} numbers per check. These {{ n(toCheck()) }} cost the same as {{ n(billableMinimum()) }} - a longer list gets more checked for the same price. {{ chargeNote() }}</span></p>
           } @else {
-            <small class="cn-summary-fine">{{ chargeNote() }}</small>
+            <small class="cn-summary-fine">{{ chargeNote() }} Nobody is messaged by the check.</small>
           }
         </aside>
 
@@ -311,7 +320,7 @@
                   }
                 </tbody>
               } @else if (reviewTab() === 'known') {
-                <thead><tr><th>Number</th><th>Country</th><th>Saved result</th><th>Checked on</th><th>In Wati</th><th>Where in file</th></tr></thead>
+                <thead><tr><th>Number</th><th>Country</th><th>Saved result</th><th>Checked on</th><th>Ready to pick</th><th>Where in file</th></tr></thead>
                 <tbody>
                   @for (row of $any(reviewSlice()); track row.number) {
                     <tr>
@@ -322,7 +331,7 @@
                         @else { <span class="cn-res cn-res--no"><i class="ph-duotone ph-x-circle" aria-hidden="true"></i>Invalid · not on WhatsApp</span> }
                       </td>
                       <td>{{ dt(row.checkedAt) }}</td>
-                      <td>{{ row.sharedToWati ? 'Shared' : '—' }}</td>
+                      <td>{{ row.sharedToWati ? 'Yes' : '—' }}</td>
                       <td>{{ row.sheet }} · line {{ row.line }}</td>
                     </tr>
                   }
@@ -415,9 +424,11 @@
               }
             </p>
             @if (running()) {
-              <button type="button" class="btn btn-danger btn-sm" [disabled]="!run.canCancel" (click)="stop()">
-                <i class="ph-duotone ph-stop-circle" aria-hidden="true"></i> Stop check
-              </button>
+              @if (run.canCancel) {
+                <button type="button" class="btn btn-danger btn-sm" (click)="stop()">
+                  <i class="ph-duotone ph-stop-circle" aria-hidden="true"></i> Stop check
+                </button>
+              }
             } @else {
               <button type="button" class="btn btn-primary btn-sm" (click)="showReport()">
                 Next <i class="ph-duotone ph-arrow-right" aria-hidden="true"></i>
@@ -442,7 +453,7 @@
               <li class="cn-feed-empty">{{ running() ? 'CheckNumber.ai answers the whole list at once — the answers appear here when it has finished.' : 'No answers were returned.' }}</li>
             }
           </ul>
-          <p class="cn-feed-note">{{ running() ? (run.reason || 'Valid numbers reach Wati the moment the check finishes') + '. You can leave this page — the check keeps running.' : run.outcome === 'Success' && !run.hasErrors ? 'The check has ended. Press Next to open the report.' : (run.reason || 'The check has ended.') + ' Press Next to open the report.' }}</p>
+          <p class="cn-feed-note">{{ running() ? (run.reason || 'Valid numbers are ready to pick the moment the check finishes') + '. You can leave this page — the check keeps running. Nobody is messaged by it.' : run.outcome === 'Success' && !run.hasErrors ? 'The check has ended. Press Next to open the report.' : (run.reason || 'The check has ended.') + ' Press Next to open the report.' }}</p>
           @if (actionProblem(); as message) {
             <p class="cn-alert cn-alert--bad" role="alert"><i class="ph-duotone ph-warning-circle" aria-hidden="true"></i><span>{{ message }}</span></p>
           }
@@ -566,16 +577,16 @@
             </p>
           </div>
           <div class="cn-jhead-end">
-            @if (j.canRetry) {
-              <button type="button" class="btn btn-primary btn-sm" (click)="resume(j)" [disabled]="!!store.activeJobId()">
+            @if (j.canRetry && !store.activeJobId()) {
+              <button type="button" class="btn btn-primary btn-sm" (click)="resume(j)">
                 <i class="ph-duotone ph-arrow-clockwise" aria-hidden="true"></i> {{ j.status === 'cancelled' ? 'Resume job' : 'Retry job' }}
               </button>
             }
             @if (j.status === 'running') {
               <a routerLink="/app/whatsapp/check-number" class="btn btn-primary btn-sm"><i class="ph-duotone ph-pulse" aria-hidden="true"></i> Watch live</a>
             }
-            @if (j.yes > 0) {
-              <a routerLink="/app/whatsapp/wati" class="btn btn-outline-secondary btn-sm"><i class="ph-duotone ph-paper-plane-tilt" aria-hidden="true"></i> Go to WhatsApp Messages</a>
+            @if (j.status === 'completed' && j.yes > 0 && j.key) {
+              <a routerLink="/app/whatsapp/wati" [queryParams]="{ job: j.key }" class="btn btn-outline-secondary btn-sm"><i class="ph-duotone ph-hand-pointing" aria-hidden="true"></i> Choose numbers to message</a>
             }
           </div>
         </header>
@@ -587,7 +598,7 @@
         @if (justFinished() && j.status === 'completed') {
           <div class="cn-inset"><p class="cn-alert cn-alert--ok" role="status">
             <i class="ph-duotone ph-seal-check" aria-hidden="true"></i>
-            <span><b>Check complete.</b> {{ n(j.yes) }} valid {{ j.yes === 1 ? 'number is' : 'numbers are' }} ready in Wati{{ j.unknown > 0 ? ', and ' + n(j.unknown) + ' could not be verified' : '' }}.</span>
+            <span><b>Check complete.</b> {{ n(j.yes) }} valid {{ j.yes === 1 ? 'number is' : 'numbers are' }} ready to pick for a message{{ j.unknown > 0 ? ', and ' + n(j.unknown) + ' could not be verified' : '' }}. Nobody was messaged.</span>
           </p></div>
         }
 
@@ -656,14 +667,40 @@
             }
           </ol>
           <ul class="cn-dlrow" aria-label="Downloads">
-            <li><button type="button" class="cn-mini" [disabled]="!j.downloads.original" (click)="download(j, 'original')"><i class="ph-duotone ph-file-arrow-down" aria-hidden="true"></i>Original file</button></li>
-            <li><button type="button" class="cn-mini" [disabled]="!j.downloads.submitted" (click)="download(j, 'submitted')"><i class="ph-duotone ph-list-numbers" aria-hidden="true"></i>Submitted numbers · {{ n(j.submitted) }}</button></li>
-            <li><button type="button" class="cn-mini" [disabled]="!j.downloads.results" (click)="download(j, 'results')"><i class="ph-duotone ph-file-csv" aria-hidden="true"></i>Results CSV · {{ n(j.results.length) }}</button></li>
-            <li><button type="button" class="cn-mini" [disabled]="!j.downloads.raw" (click)="download(j, 'raw')"><i class="ph-duotone ph-brackets-curly" aria-hidden="true"></i>CheckNumber.ai raw files</button></li>
-            <li><button type="button" class="cn-mini" [disabled]="!j.downloads.invalid" (click)="download(j, 'invalid')"><i class="ph-duotone ph-warning-diamond" aria-hidden="true"></i>Invalid lines · {{ n(j.invalid) }}</button></li>
+            @if (j.downloads.original) { <li><button type="button" class="cn-mini" (click)="download(j, 'original')"><i class="ph-duotone ph-file-arrow-down" aria-hidden="true"></i>Original file</button></li> }
+            @if (j.downloads.submitted) { <li><button type="button" class="cn-mini" (click)="download(j, 'submitted')"><i class="ph-duotone ph-list-numbers" aria-hidden="true"></i>Submitted numbers · {{ n(j.submitted) }}</button></li> }
+            @if (j.downloads.results) { <li><button type="button" class="cn-mini" (click)="download(j, 'results')"><i class="ph-duotone ph-file-csv" aria-hidden="true"></i>Results CSV · {{ n(j.results.length) }}</button></li> }
+            @if (j.downloads.raw) { <li><button type="button" class="cn-mini" (click)="download(j, 'raw')"><i class="ph-duotone ph-brackets-curly" aria-hidden="true"></i>CheckNumber.ai raw files</button></li> }
+            @if (j.downloads.invalid) { <li><button type="button" class="cn-mini" (click)="download(j, 'invalid')"><i class="ph-duotone ph-warning-diamond" aria-hidden="true"></i>Invalid lines · {{ n(j.invalid) }}</button></li> }
           </ul>
         </div>
       </section>
+
+      <!-- The trail from this check to its messages: every send made with numbers picked from it. -->
+      @if (j.sends.length > 0) {
+        <section class="cn-sheet" aria-label="Sends from this check">
+          <div class="cn-pad cn-report-head">
+            <h2 class="cn-h">Sent from this check <span class="cn-h-note">{{ n(j.sends.length) }} {{ j.sends.length === 1 ? 'send' : 'sends' }}</span></h2>
+          </div>
+          <div class="cn-scroll">
+            <table class="cn-table">
+              <thead><tr><th>Send</th><th>Template</th><th class="r">Numbers from this check</th><th class="r">Sent</th><th>When ({{ zone }})</th><th class="w-go"></th></tr></thead>
+              <tbody>
+                @for (s of j.sends; track s.id) {
+                  <tr class="cn-row" tabindex="0" (click)="openSend(s.id)" (keydown.enter)="openSend(s.id)">
+                    <td><span class="cn-strong">{{ s.name }}</span><small class="cn-num">{{ s.reference }}</small></td>
+                    <td class="cn-num">{{ s.templateName }}</td>
+                    <td class="r cn-num">{{ n(s.fromThisCheck) }}</td>
+                    <td class="r cn-num cn-ok">{{ n(s.acceptedFromThisCheck) }}</td>
+                    <td>{{ dt(s.createdAt) }}<small>{{ s.requestedBy || '' }}</small></td>
+                    <td class="w-go"><i class="ph-duotone ph-caret-right" aria-hidden="true"></i></td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        </section>
+      }
 
       <ng-container *ngTemplateOutlet="reportTpl; context: { $implicit: j }" />
     } @else if (opening() || store.loading()) {
@@ -700,7 +737,7 @@
           </div>
           <label class="cn-search">
             <i class="ph-duotone ph-magnifying-glass" aria-hidden="true"></i>
-            <input type="search" placeholder="Number, country or note" [value]="reportQuery()" (input)="reportQuery.set($any($event.target).value)" aria-label="Search the report" />
+            <input type="search" placeholder="Number, name, country or note" [value]="reportQuery()" (input)="reportQuery.set($any($event.target).value)" aria-label="Search the report" />
           </label>
         </div>
 
@@ -713,12 +750,13 @@
           <div class="cn-scroll">
           <table class="cn-table">
             <thead>
-              <tr><th>Number</th><th>Country</th><th>WhatsApp enabled</th><th>Result</th><th>Note</th><th>Status</th></tr>
+              <tr><th>Number</th><th>Name</th><th>Country</th><th>WhatsApp enabled</th><th>Result</th><th>Note</th><th>Status</th><th>Messaged</th></tr>
             </thead>
             <tbody>
               @for (r of reportSlice(); track r.number) {
                 <tr>
                   <td class="cn-num cn-strong">{{ r.number }}</td>
+                  <td>{{ r.contactName || '—' }}</td>
                   <td><span class="cn-iso">{{ r.iso }}</span>{{ r.country }}</td>
                   <td>
                     <span class="cn-res cn-res--{{ r.whatsapp }}">
@@ -728,6 +766,7 @@
                   <td><span class="cn-tone cn-tone--{{ r.whatsapp }}">{{ rowResult(r) }}</span></td>
                   <td class="cn-note">{{ r.note }}</td>
                   <td>{{ r.status === 'saved' ? 'Saved result' : r.status === 'unverified' ? 'Unverified' : 'Checked' }}</td>
+                  <td>@if (r.lastSend) { <span class="cn-num">{{ r.lastSend }}</span> } @else { <span class="cn-note">—</span> }</td>
                 </tr>
               }
             </tbody>

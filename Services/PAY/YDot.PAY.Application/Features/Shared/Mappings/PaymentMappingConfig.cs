@@ -1,4 +1,3 @@
-using System.Globalization;
 using YDot.PAY.Application.Common.Models;
 using YDot.PAY.Domain.Common;
 using YDot.PAY.Domain.Enums;
@@ -17,32 +16,14 @@ namespace YDot.PAY.Application.Features.Shared.Mappings;
 public static class PaymentMappingConfig
 {
     /// <summary>
-    /// Renders an amount for the client.
-    ///
-    /// The plain form is used where no currency master row is loaded. Where one is, the symbol
-    /// and decimal places come from it - see <see cref="ToResponse(MoneyValue, string?, int)"/>.
+    /// Renders an amount for the client, written by <see cref="MoneyText"/> - the platform's
+    /// grouping and marker with the currency master's symbol and decimal places.
     /// </summary>
     public static MoneyResponse ToResponse(this MoneyValue money)
     {
         ArgumentNullException.ThrowIfNull(money);
 
         return MoneyResponse.Plain(money.Amount, money.CurrencyCode);
-    }
-
-    /// <summary>Renders an amount with the currency's own symbol and decimal places.</summary>
-    public static MoneyResponse ToResponse(this MoneyValue money, string? symbol, int decimalPlaces)
-    {
-        ArgumentNullException.ThrowIfNull(money);
-
-        var places = Math.Clamp(decimalPlaces, 0, 8);
-        var number = money.Amount.ToString(
-            "N" + places.ToString(CultureInfo.InvariantCulture), CultureInfo.InvariantCulture);
-
-        var display = string.IsNullOrWhiteSpace(symbol)
-            ? $"{number} {money.CurrencyCode}"
-            : $"{symbol}{number}";
-
-        return new MoneyResponse(money.Amount, money.CurrencyCode, display);
     }
 
     /// <summary>Renders a nullable amount, or null.</summary>

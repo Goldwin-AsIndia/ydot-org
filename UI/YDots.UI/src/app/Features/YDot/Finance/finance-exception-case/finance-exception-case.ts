@@ -14,6 +14,7 @@ import { ToastService } from '../../../../Shared/services/toast.service';
 import { FinanceStateService } from '../shared/finance-state.service';
 import { FinanceExceptionRecord } from '../shared/finance.model';
 import { PageHeader } from '../../../../Shared/components/page-header/page-header';
+import { formatMoney } from '../../../../Shared/services/money-format';
 
 /**
  * SCR-FIN-005 — Finance exception case.
@@ -389,8 +390,9 @@ export class FinanceExceptionCaseComponent {
   }));
 
   // ================= Formatting helpers =================
+  /** Finance figures are exact to the paisa, in the platform's money format (₹23,81,600.00). */
   protected formatAmount(value: number): string {
-    return value.toLocaleString('en-IN');
+    return formatMoney(value ?? 0, null, { style: 'exact' });
   }
   protected formatDateTime(iso: string): string {
     const d = new Date(iso);

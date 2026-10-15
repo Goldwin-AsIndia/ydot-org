@@ -137,6 +137,16 @@ export class CheckNumberComponent {
   });
   protected readonly estimate = computed(() => this.store.estimate(this.toCheck()));
 
+  /**
+   * How many numbers CheckNumber.ai's minimum charge pays for (500, as the worker publishes it): a check of
+   * fewer costs the same, so the review says so - large lists are what make a check worth its price.
+   */
+  protected readonly billableMinimum = computed(() => this.store.overview()?.billableMinimumNumbers ?? 0);
+  /** The worker's own floor (CheckNumber:MinimumNumbersPerTask): a check with fewer new numbers is refused. */
+  protected readonly minimumNumbers = computed(() => this.store.overview()?.minimumNumbersPerTask ?? 1);
+  protected readonly belowMinimum = computed(() => this.toCheck() > 0 && this.minimumNumbers() > 1 && this.toCheck() < this.minimumNumbers());
+  protected readonly belowBillable = computed(() => this.toCheck() > 0 && this.billableMinimum() > 0 && this.toCheck() < this.billableMinimum());
+
   protected readonly knownYes = computed(() => this.draft()?.alreadyChecked.filter((k) => k.result === 'yes').length ?? 0);
   protected readonly knownNo = computed(() => (this.draft()?.alreadyChecked.length ?? 0) - this.knownYes());
 
@@ -245,13 +255,16 @@ export class CheckNumberComponent {
     const job = this.job();
     if (!job) return [];
     const tab = this.reportTab();
-    const q = this.reportQuery().replace(/[\s-]/g, '').toLowerCase();
+    // Numbers are matched without their spaces and dashes; names, countries and notes as typed.
+    const text = this.reportQuery().trim().toLowerCase();
+    const digits = text.replace(/[\s-]/g, '');
     return job.results.filter((r) => {
       if (tab === 'valid' && r.whatsapp !== 'yes') return false;
       if (tab === 'invalid' && r.whatsapp !== 'no') return false;
       if (tab === 'unverified' && r.whatsapp !== 'unknown') return false;
       if (tab === 'saved' && r.status !== 'saved') return false;
-      return !q || r.number.includes(q) || r.country.toLowerCase().includes(q) || r.note.toLowerCase().includes(q);
+      return !text || r.number.includes(digits) || r.country.toLowerCase().includes(text) || r.note.toLowerCase().includes(text)
+        || (r.contactName ?? '').toLowerCase().includes(text);
     });
   });
   protected readonly reportSlice = computed(() => {
@@ -284,7 +297,7 @@ export class CheckNumberComponent {
     } else if (job.status === 'cancelled') {
       steps.push({ label: 'Stopped', at: job.finishedAt, state: 'bad' });
     } else if (job.status === 'completed') {
-      steps.push({ label: job.sharedToWati > 0 ? `${count(job.sharedToWati)} valid numbers shared to Wati` : 'No new numbers to share', at: job.finishedAt, state: 'done' });
+      steps.push({ label: job.sharedToWati > 0 ? `${count(job.sharedToWati)} valid numbers ready to pick for a message` : 'No number on WhatsApp', at: job.finishedAt, state: 'done' });
     } else {
       steps.push({ label: 'Waiting for results', at: null, state: 'wait' });
     }
@@ -450,8 +463,19 @@ export class CheckNumberComponent {
     this.campaignId.set(NO_CAMPAIGN);
   }
 
-  protected canStart(d: UploadAnalysis): boolean {
+  /** The file held at least one valid number. */
+  protected hasNumbers(d: UploadAnalysis): boolean {
     return d.fresh.length > 0 || d.alreadyChecked.length > 0;
+  }
+
+  /** The check can start: there is something to check or report, and the worker's floor is met. */
+  protected canStart(d: UploadAnalysis): boolean {
+    return this.hasNumbers(d) && !this.belowMinimum();
+  }
+
+  /** A send made from this check, opened in the send log. */
+  protected openSend(id: string): void {
+    void this.router.navigate(['/app/whatsapp/wati/send-log'], { queryParams: { send: id } });
   }
 
   /** Uploads the reviewed file. The check then runs on the server, whether or not this page stays open. */

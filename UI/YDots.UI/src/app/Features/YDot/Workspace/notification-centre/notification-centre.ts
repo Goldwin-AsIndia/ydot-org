@@ -4,6 +4,7 @@ import { Component, computed, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { PageHeader } from '../../../../Shared/components/page-header/page-header';
+import { formatMoney } from '../../../../Shared/services/money-format';
 
 /**
  * SCR-UX-006 — Notification centre.
@@ -148,7 +149,7 @@ export class NotificationCentreComponent {
       reference: 'NOTIF-2026-0705',
       type: 'Update',
       title: 'Donation received',
-      summary: '₹75,600 received for DONATION-2026-0705 from John Paul.',
+      summary: `${formatMoney(75600)} received for DONATION-2026-0705 from John Paul.`,
       sourceRecord: 'DONATION-2026-0705',
       created: '2026-07-18T07:15',
       createdLabel: 'Today · 07:15 AM',

@@ -1,4 +1,5 @@
 using System.Globalization;
+using YDot.IAM.Application.Common.Formatting;
 using YDot.IAM.Application.Features.GlobalMasters.DTOs;
 using YDot.IAM.Domain.Entities;
 using YDot.IAM.Domain.Enums;
@@ -9,8 +10,11 @@ namespace YDot.IAM.Application.Features.GlobalMasters.Mappings;
 /// <summary>Manual mapping for the Currencies slice.</summary>
 public static class CurrencyMappingConfig
 {
-    /// <summary>The amount used to demonstrate a currency's formatting on screen.</summary>
-    private const decimal SampleValue = 1234.5m;
+    /// <summary>
+    /// The amount used to demonstrate a currency's formatting on screen - past a lakh, so the
+    /// grouping the platform uses (12,34,567.50 or 1,234,567.50) is visible in the sample.
+    /// </summary>
+    private const decimal SampleValue = 1234567.5m;
 
     /// <summary>Builds a new Currency. The code is parsed rather than trimmed, so INR is INR everywhere.</summary>
     public static Currency ToEntity(this CreateCurrencyRequest request, Guid? tenantId, Guid businessUnitId)
@@ -212,29 +216,22 @@ public static class CurrencyMappingConfig
     /// A worked example of the currency's formatting, so the screen shows the EFFECT of the
     /// settings rather than making an operator infer it from four separate fields.
     ///
-    /// Built on the invariant culture on purpose: the point is to demonstrate what THIS
-    /// currency's own rules produce, and letting the server's locale insert its own group
-    /// separators would show the operator something the application will never render.
+    /// Written by <see cref="MoneyText"/> under THIS row's symbol, position and decimal places -
+    /// the rule every screen, receipt and dashboard applies - with the platform's grouping and
+    /// marker. A preview built any other way would show the operator something the application
+    /// never renders.
     /// </summary>
     public static string FormatSample(Currency currency)
     {
         ArgumentNullException.ThrowIfNull(currency);
 
-        var places = Math.Clamp(currency.DecimalPlaces, 0, 8);
-        var rounded = Round(SampleValue, currency);
+        var rule = new CurrencyDisplayRule(
+            currency.Code,
+            currency.Symbol,
+            currency.SymbolPosition == SymbolPosition.Suffix,
+            currency.DecimalPlaces);
 
-        var number = string.IsNullOrWhiteSpace(currency.DisplayFormat)
-            ? rounded.ToString("N" + places.ToString(CultureInfo.InvariantCulture), CultureInfo.InvariantCulture)
-            : SafeFormat(rounded, currency.DisplayFormat, places);
-
-        if (string.IsNullOrWhiteSpace(currency.Symbol))
-        {
-            return $"{number} {currency.Code}";
-        }
-
-        return currency.SymbolPosition == SymbolPosition.Prefix
-            ? $"{currency.Symbol}{number}"
-            : $"{number} {currency.Symbol}";
+        return MoneyText.Format(Round(SampleValue, currency), rule, MoneyStyle.Exact);
     }
 
     /// <summary>
@@ -269,26 +266,6 @@ public static class CurrencyMappingConfig
         return currency.RoundingMode == RoundingMode.HalfDown
             ? -Math.Round(-amount, places, MidpointRounding.AwayFromZero)
             : Math.Round(amount, places, midpoint);
-    }
-
-    /// <summary>
-    /// Formats with the configured custom format, falling back to the plain numeric form when
-    /// the format string is malformed.
-    ///
-    /// A bad format string is operator-entered data, not a programming error, and it must not
-    /// be able to take down the whole currency grid with a FormatException.
-    /// </summary>
-    private static string SafeFormat(decimal amount, string format, int places)
-    {
-        try
-        {
-            return amount.ToString(format, CultureInfo.InvariantCulture);
-        }
-        catch (FormatException)
-        {
-            return amount.ToString(
-                "N" + places.ToString(CultureInfo.InvariantCulture), CultureInfo.InvariantCulture);
-        }
     }
 
     private static string? Clean(string? value) =>

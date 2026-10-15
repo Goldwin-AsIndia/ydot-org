@@ -109,6 +109,8 @@ import { DonorformComponent } from './Features/YDot/Auth/Auth/donorform/donorfor
 import { CampaignReadinessChecklistComponent } from './Features/YDot/Campaigns/campaign-readiness-checklist/campaign-readiness-checklist';
 import { CheckNumberComponent } from './Features/YDot/WhatsApp/check-number/check-number';
 import { WatiComponent } from './Features/YDot/WhatsApp/wati/wati';
+import { WatiGroupsComponent } from './Features/YDot/WhatsApp/wati-groups/wati-groups';
+import { WatiLogComponent } from './Features/YDot/WhatsApp/wati-log/wati-log';
 
 
 
@@ -202,6 +204,19 @@ export const routes: Routes = [
         path: 'whatsapp/wati/report',
         component: WatiComponent,
         data: { view: 'report' },
+        canActivate: [requirePermission('cam.whatsapp.view')],
+      },
+      // The picks kept for later sends, and the audit of every send. Reading them needs the view
+      // permission; changing a group, sending and retrying are refused by the API without operate,
+      // and the screens show those actions only to whoever may take them.
+      {
+        path: 'whatsapp/wati/groups',
+        component: WatiGroupsComponent,
+        canActivate: [requirePermission('cam.whatsapp.view')],
+      },
+      {
+        path: 'whatsapp/wati/send-log',
+        component: WatiLogComponent,
         canActivate: [requirePermission('cam.whatsapp.view')],
       },
 

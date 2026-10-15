@@ -1,4 +1,5 @@
 using System.Globalization;
+using YDots.CAM.Application.Common.Formatting;
 
 namespace YDots.CAM.Application.Features.Dashboard;
 
@@ -56,8 +57,8 @@ public static class DashboardFormat
     /// <summary>"Oct 26".</summary>
     public static string MonthLabel(DateOnly month) => month.ToString("MMM yy", Words);
 
-    /// <summary>"1,286".</summary>
-    public static string Count(long value) => value.ToString("N0", CultureInfo.InvariantCulture);
+    /// <summary>"1,286", "1,25,000" - grouped like the amounts beside it (see MoneyText).</summary>
+    public static string Count(long value) => MoneyText.Number(value);
 
     /// <summary>"1 gift", "3 gifts".</summary>
     public static string Counted(long value, string singular, string plural) =>

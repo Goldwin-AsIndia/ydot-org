@@ -371,7 +371,15 @@ public sealed partial class WhatsAppIntegrationStore(
         MaxRecipientsPerJob: 0,
         AllowListActive: false,
         AllowListSize: 0,
-        BatchSize: 0);
+        BatchSize: 0,
+        MaxRecipientsPerSend: 0,
+        MinimumNumbersPerTask: 1,
+        BillableMinimumNumbers: 0,
+        SendToUnverifiedNumbers: false,
+        SkipAlreadyMessagedNumbers: true,
+        DuplicateWindowDays: 0,
+        RetryableFailureCodes: [],
+        AllowListFingerprints: []);
 
     /// <summary>
     /// Runs a read, answering <paramref name="whenUnavailable"/> when the worker's tables are not
@@ -422,7 +430,7 @@ public sealed partial class WhatsAppIntegrationStore(
     /// what the worker will actually do - a price or a recipient cap copied into a second
     /// settings file is a figure that is wrong the first time somebody changes only one of them.
     /// </summary>
-    private static WhatsAppSettingsView ParseSettings(string? settingsJson)
+    private WhatsAppSettingsView ParseSettings(string? settingsJson)
     {
         if (string.IsNullOrWhiteSpace(settingsJson))
         {
@@ -438,15 +446,22 @@ public sealed partial class WhatsAppIntegrationStore(
             var wati = Section(root, "wati");
             var worker = Section(root, "worker");
 
+            var workerCap = Number(wati, "maxRecipientsPerJob");
+            var price = Amount(checkNumber, "pricePerNumberUsd");
+            var minimumCharge = Amount(checkNumber, "minimumChargePerTaskUsd");
+            var billableMinimum = Number(checkNumber, "billableMinimumNumbers");
+
             return new WhatsAppSettingsView(
                 CheckNumberEnabled: Flag(pipeline, "enableCheckNumber"),
                 CheckNumberConfigured: Flag(checkNumber, "configured"),
                 WatiEnabled: Flag(pipeline, "enableWati"),
                 WatiConfigured: Flag(wati, "configured"),
-                AutoSendWati: Flag(pipeline, "autoSendWati"),
+
+                // An older worker may still publish true; it no longer means anything to the pages.
+                AutoSendWati: false,
                 ManualBroadcastsAllowed: Flag(pipeline, "allowManualWatiBroadcasts"),
-                PricePerNumber: Amount(checkNumber, "pricePerNumberUsd"),
-                MinimumChargePerTask: Amount(checkNumber, "minimumChargePerTaskUsd"),
+                PricePerNumber: price,
+                MinimumChargePerTask: minimumCharge,
                 Currency: Text(checkNumber, "currency") ?? "USD",
                 MaxFileSizeMegabytes: Number(worker, "maxFileSizeMegabytes", NoSettings.MaxFileSizeMegabytes),
                 PollingIntervalSeconds: Number(checkNumber, "pollingIntervalSeconds"),
@@ -455,16 +470,55 @@ public sealed partial class WhatsAppIntegrationStore(
                 ResultValidityDays: Number(checkNumber, "resultValidityDays"),
                 DefaultTemplateName: Text(wati, "defaultTemplateName"),
                 DefaultBroadcastName: Text(wati, "defaultBroadcastName"),
-                MaxRecipientsPerJob: Number(wati, "maxRecipientsPerJob"),
+                MaxRecipientsPerJob: workerCap,
                 AllowListActive: Flag(wati, "allowListActive"),
                 AllowListSize: Number(wati, "allowListSize"),
-                BatchSize: Number(wati, "batchSize"));
+                BatchSize: Number(wati, "batchSize"),
+                MaxRecipientsPerSend: EffectiveCap(workerCap),
+                MinimumNumbersPerTask: Math.Max(1, Number(checkNumber, "minimumNumbersPerTask", 1)),
+
+                // Published by a current worker; worked out from the prices for an older one.
+                BillableMinimumNumbers: billableMinimum > 0
+                    ? billableMinimum
+                    : price > 0 ? (int)Math.Ceiling(minimumCharge / price) : 0,
+                SendToUnverifiedNumbers: Flag(wati, "sendToUnverifiedNumbers"),
+                SkipAlreadyMessagedNumbers: wati is not { } section || !section.TryGetProperty("skipAlreadyMessagedNumbers", out _) || Flag(wati, "skipAlreadyMessagedNumbers"),
+                DuplicateWindowDays: Number(wati, "duplicateWindowDays"),
+                RetryableFailureCodes: Strings(wati, "retryableFailureCodes") is { Count: > 0 } codes ? codes : DefaultRetryableFailureCodes,
+
+                // SHA-256 of each allow-listed number's digits: the review marks NOT_IN_ALLOWLIST without
+                // the numbers being published. Never sent to the browser (JsonIgnore on the view).
+                AllowListFingerprints: Strings(wati, "allowListSha256"));
         }
         catch (JsonException)
         {
             return NoSettings;
         }
     }
+
+    /// <summary>
+    /// The most numbers one send may carry: the worker's cap, never more than this server's own
+    /// ceiling - and that ceiling alone when the worker sets no cap (0).
+    /// </summary>
+    private int EffectiveCap(int workerCap)
+    {
+        var ceiling = Math.Max(1, settings.Value.MaxRecipientsPerSend);
+        return workerCap > 0 ? Math.Min(workerCap, ceiling) : ceiling;
+    }
+
+    /// <summary>The worker's retryable failure codes, for an older worker that does not publish them.</summary>
+    private static readonly IReadOnlyList<string> DefaultRetryableFailureCodes =
+        ["WATI_UNAUTHORIZED", "WATI_UNAVAILABLE", "WATI_DELIVERY_UNCERTAIN", "WATI_NOT_CONFIGURED", "WATI_REJECTED"];
+
+    private static IReadOnlyList<string> Strings(JsonElement? section, string name) =>
+        section is { } element
+        && element.TryGetProperty(name, out var value)
+        && value.ValueKind == JsonValueKind.Array
+            ? value.EnumerateArray()
+                .Where(item => item.ValueKind == JsonValueKind.String && !string.IsNullOrWhiteSpace(item.GetString()))
+                .Select(item => item.GetString()!)
+                .ToList()
+            : [];
 
     private static JsonElement? Section(JsonElement root, string name) =>
         root.ValueKind == JsonValueKind.Object

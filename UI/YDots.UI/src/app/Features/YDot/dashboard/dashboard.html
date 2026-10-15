@@ -54,7 +54,7 @@
         <!-- ===== Pulse strip: every counter opens its screen ===== -->
         <section class="dbd-tile dbd-pulse-strip dbd-s12" aria-label="Pulse">
           @for (c of counters(); track c.key) {
-            <a [routerLink]="c.route"><i class="{{ c.icon }}"></i> <span class="dbd-label">{{ c.label }}</span><b class="dbd-num">{{ c.value | number }}</b></a>
+            <a [routerLink]="c.route"><i class="{{ c.icon }}"></i> <span class="dbd-label">{{ c.label }}</span><b class="dbd-num">{{ c.value | grouped }}</b></a>
           }
         </section>
 
@@ -132,7 +132,7 @@
               <ul class="dbd-key dbd-key--grow">
                 @for (s of h.slices; track s.key) {
                   <li [class.is-zero]="s.count === 0">
-                    <a [routerLink]="s.route"><span class="dbd-dot dbd-dot--{{ s.tone }}"></span><span class="dbd-key-name">{{ s.label }}</span><b class="dbd-num">{{ s.count | number }}</b><span class="dbd-quiet dbd-key-pct">{{ healthTotal() ? ((s.count / healthTotal()) * 100 | number: '1.0-0') : 0 }}%</span></a>
+                    <a [routerLink]="s.route"><span class="dbd-dot dbd-dot--{{ s.tone }}"></span><span class="dbd-key-name">{{ s.label }}</span><b class="dbd-num">{{ s.count | grouped }}</b><span class="dbd-quiet dbd-key-pct">{{ healthTotal() ? ((s.count / healthTotal()) * 100 | number: '1.0-0') : 0 }}%</span></a>
                   </li>
                 }
               </ul>
@@ -172,7 +172,7 @@
                     <strong>{{ top.label }}</strong>
                     <span class="dbd-quiet">{{ top.hint }}</span>
                   </span>
-                  <span class="dbd-tq-hnum"><b class="dbd-num">{{ top.count | number }}</b>@if (top.route) {<em>Open <i class="ri-arrow-right-line"></i></em>}</span>
+                  <span class="dbd-tq-hnum"><b class="dbd-num">{{ top.count | grouped }}</b>@if (top.route) {<em>Open <i class="ri-arrow-right-line"></i></em>}</span>
                 </button>
               }
               <ul class="dbd-tq-list">
@@ -185,7 +185,7 @@
                         <span class="dbd-quiet">{{ r.hint }}</span>
                         <span class="dbd-tq-meter"><i [style.width.%]="r.width"></i></span>
                       </span>
-                      <b class="dbd-tq-n dbd-num">{{ r.count | number }}</b>
+                      <b class="dbd-tq-n dbd-num">{{ r.count | grouped }}</b>
                       @if (r.route) { <i class="ri-arrow-right-s-line dbd-tq-go"></i> }
                     </button>
                   </li>
@@ -208,7 +208,7 @@
             @if (act.items.length) {
               <div class="dbd-fill dbd-ac">
                 <div class="dbd-ac-stats">
-                  @for (s of act.stats; track s.label) { <span [class.is-bad]="s.isAlert"><b class="dbd-num">{{ s.value | number }}</b>{{ s.label }}</span> }
+                  @for (s of act.stats; track s.label) { <span [class.is-bad]="s.isAlert"><b class="dbd-num">{{ s.value | grouped }}</b>{{ s.label }}</span> }
                 </div>
                 @for (g of activityGroups(); track g.label) {
                   <p class="dbd-act-day"><span>{{ g.label }}</span></p>
@@ -264,7 +264,7 @@
             @if (ag.figures.length) {
               <div class="dbd-sum">
                 @for (fig of ag.figures; track fig.label) {
-                  <a [routerLink]="fig.route"><b class="dbd-num" [class.is-late]="fig.isAlert">{{ fig.value | number }}</b><span>{{ fig.label }}</span></a>
+                  <a [routerLink]="fig.route"><b class="dbd-num" [class.is-late]="fig.isAlert">{{ fig.value | grouped }}</b><span>{{ fig.label }}</span></a>
                 }
               </div>
             }
@@ -418,7 +418,7 @@
                   <b class="dbd-num">{{ fmt(fd.totalValue, fd.unit, fd.currencyCode) }}</b>
                   <span class="dbd-lf-chips">
                     @for (chip of fd.chips; track chip.label) {
-                      <em class="dbd-lf-chip" [class.dbd-lf-chip--ok]="chip.tone === 'ok'"><i class="{{ chip.icon }}"></i>{{ chip.value | number }} {{ chip.label }}</em>
+                      <em class="dbd-lf-chip" [class.dbd-lf-chip--ok]="chip.tone === 'ok'"><i class="{{ chip.icon }}"></i>{{ chip.value | grouped }} {{ chip.label }}</em>
                     }
                   </span>
                 </div>
@@ -478,7 +478,7 @@
                       <li [style.--e]="i * 80 + 'ms'">
                         <a class="dbd-sx-row" [routerLink]="a.route" [class.is-dim]="srcHover() !== null && srcHover() !== i" [style.--c]="a.colour" [style.--w]="a.share + '%'" (mouseenter)="srcHover.set(i)" (mouseleave)="srcHover.set(null)" (focus)="srcHover.set(i)" (blur)="srcHover.set(null)">
                           <span class="dbd-sx-mark"><i class="{{ a.icon }}"></i></span>
-                          <span class="dbd-sx-body"><strong>{{ a.label }}</strong><span class="dbd-quiet">{{ a.count | number }} {{ sp.countPlural }}@if (sp.unit === 'money') { · {{ fmt(a.value, sp.unit, sp.currencyCode) }}}</span></span>
+                          <span class="dbd-sx-body"><strong>{{ a.label }}</strong><span class="dbd-quiet">{{ a.count | grouped }} {{ sp.countPlural }}@if (sp.unit === 'money') { · {{ fmt(a.value, sp.unit, sp.currencyCode) }}}</span></span>
                           <b class="dbd-num dbd-sx-fig">{{ a.share | number: '1.0-0' }}<small>%</small></b>
                           <span class="dbd-sx-meter"><i></i></span>
                         </a>
@@ -488,7 +488,7 @@
                       <li [style.--e]="b.arcs.length * 80 + 'ms'">
                         <a class="dbd-sx-row dbd-sx-row--rest" [routerLink]="b.rest.route" [class.is-dim]="srcHover() !== null && srcHover() !== -1" [style.--w]="b.rest.share + '%'" (mouseenter)="srcHover.set(-1)" (mouseleave)="srcHover.set(null)" (focus)="srcHover.set(-1)" (blur)="srcHover.set(null)">
                           <span class="dbd-sx-mark"><i class="{{ b.rest.icon }}"></i></span>
-                          <span class="dbd-sx-body"><strong>{{ b.rest.label }}</strong><span class="dbd-quiet">{{ b.rest.count | number }} {{ sp.countPlural }}@if (sp.restHint) { · {{ sp.restHint }}}</span></span>
+                          <span class="dbd-sx-body"><strong>{{ b.rest.label }}</strong><span class="dbd-quiet">{{ b.rest.count | grouped }} {{ sp.countPlural }}@if (sp.restHint) { · {{ sp.restHint }}}</span></span>
                           <b class="dbd-num dbd-sx-fig">{{ b.rest.share | number: '1.0-0' }}<small>%</small></b>
                           <span class="dbd-sx-meter"><i></i></span>
                         </a>
@@ -526,7 +526,7 @@
                     <a [routerLink]="f.route" [class]="'dbd-st-row dbd-st-row--' + f.tone" [style.--w]="f.percent + '%'">
                       <span class="dbd-st-name">{{ f.label }}</span>
                       <span class="dbd-st-pct">{{ f.percent | number: '1.0-0' }}%</span>
-                      <b class="dbd-num dbd-st-count">{{ f.count | number }}</b>
+                      <b class="dbd-num dbd-st-count">{{ f.count | grouped }}</b>
                       <span class="dbd-st-meter"><i></i></span>
                     </a>
                   </li>

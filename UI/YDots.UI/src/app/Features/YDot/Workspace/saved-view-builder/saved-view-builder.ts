@@ -2,6 +2,7 @@ import { CommonModule } from '@angular/common';
 import { Component, computed, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { PageHeader } from '../../../../Shared/components/page-header/page-header';
+import { currencyMark } from '../../../../Shared/services/money-format';
 
 /**
  * UX-UI-08 — Saved view builder.
@@ -163,12 +164,12 @@ export class SavedViewBuilderComponent {
   private readonly moduleConfigs: Record<string, ModuleConfig> = {
     Donations: {
       baseViews: ['All Donations (Default)', 'Corporate Donations', 'High Value Donations', 'My Team Donations'],
-      filterFields: ['Donation Type', 'Status', 'Donation Date', 'Organisation', 'Amount (₹)', 'Campaign', 'Payment Mode'],
+      filterFields: ['Donation Type', 'Status', 'Donation Date', 'Organisation', `Amount (${currencyMark()})`, 'Campaign', 'Payment Mode'],
       columns: [
         { key: 'donation-id', label: 'Donation ID', selected: true },
         { key: 'donor-org', label: 'Donor / Organisation', selected: true },
         { key: 'donation-type', label: 'Donation Type', selected: true },
-        { key: 'amount', label: 'Amount (₹)', selected: true },
+        { key: 'amount', label: `Amount (${currencyMark()})`, selected: true },
         { key: 'status', label: 'Status', selected: true },
         { key: 'donation-date', label: 'Donation Date', selected: true },
         { key: 'campaign', label: 'Campaign', selected: false },
@@ -198,8 +199,8 @@ export class SavedViewBuilderComponent {
         { key: 'campaign-code', label: 'Campaign Code', selected: true },
         { key: 'campaign-name', label: 'Campaign Name', selected: true },
         { key: 'campaign-status', label: 'Status', selected: true },
-        { key: 'target-amount', label: 'Target Amount (₹)', selected: true },
-        { key: 'raised-amount', label: 'Raised Amount (₹)', selected: true },
+        { key: 'target-amount', label: `Target Amount (${currencyMark()})`, selected: true },
+        { key: 'raised-amount', label: `Raised Amount (${currencyMark()})`, selected: true },
         { key: 'launch-date', label: 'Launch Date', selected: true },
         { key: 'owner', label: 'Owner', selected: false },
         { key: 'channel', label: 'Channel', selected: false },
@@ -219,7 +220,7 @@ export class SavedViewBuilderComponent {
         { key: 'received-date', label: 'Received Date', selected: false },
         { key: 'supplier', label: 'Supplier', selected: false },
       ],
-      extraColumns: ['Batch', 'Expiry Date', 'Reorder Level', 'Unit Cost (₹)'],
+      extraColumns: ['Batch', 'Expiry Date', 'Reorder Level', `Unit Cost (${currencyMark()})`],
     },
   };
 
@@ -319,7 +320,7 @@ export class SavedViewBuilderComponent {
   private sortSeq = 2;
   protected readonly sortLevels = signal<SortLevel[]>([
     { id: 1, field: 'Donation Date', direction: 'Descending' },
-    { id: 2, field: 'Amount (₹)', direction: 'Descending' },
+    { id: 2, field: `Amount (${currencyMark()})`, direction: 'Descending' },
   ]);
   protected readonly sortDirections: readonly SortLevel['direction'][] = ['Ascending', 'Descending'];
 

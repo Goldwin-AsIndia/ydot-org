@@ -52,6 +52,7 @@ import {
   RccRefundCaseRecord,
 } from './refund-chargeback-case.model';
 import { readableIdentifier } from './identifier';
+import { formatMoney } from '../services/money-format';
 
 // =============================================================================================
 // Shared formatting
@@ -269,7 +270,7 @@ export function toPaymentEventRecord(event: PaymentEventListItem): PaymentEventR
     donorName: '',
     donorEmail: '',
     campaignName: '',
-    donationAmount: event.amount ? event.amount.display : '',
+    donationAmount: event.amount ? formatMoney(event.amount.amount, event.amount.currencyCode, { style: 'exact' }) : '',
     currency: moneyCurrency(event.amount),
     paymentStatus: toPaymentStatus(event),
   };
@@ -686,7 +687,7 @@ export function toIntentScreenRecord(detail: DonationIntentDetail): DonationInte
     lifecycleHistory: [
       {
         title: 'Intent created',
-        detail: `${detail.sourceDescription} - ${detail.amount.display}`,
+        detail: `${detail.sourceDescription} - ${formatMoney(detail.amount.amount, detail.amount.currencyCode, { style: 'exact' })}`,
         time: formatMoment(detail.createdAtUtc),
         tone: 'muted' as const,
       },

@@ -13,27 +13,25 @@ using YDots.CAM.Application.Features.WhatsApp.DTOs;
 
 namespace YDots.CAM.Application.Features.WhatsApp.Commands;
 
-/// <summary>A number file from the upload page.</summary>
+/// <summary>
+/// A number file from the upload page - FOR VALIDATION ONLY. The check finds out which numbers
+/// are on WhatsApp; nobody is messaged until a person picks numbers on the WhatsApp Messages page.
+/// </summary>
 /// <param name="ForceRecheck">"Check them again anyway": ignore saved answers (and allow the same file again).</param>
-/// <param name="RunWati">False = check only, do not message automatically. Null = the worker's setting.</param>
-/// <param name="WatiTemplateName">A template for THIS upload's automatic message; blank = the worker's default.</param>
-/// <param name="WatiBroadcastName">A broadcast name for this upload; blank = the worker's default.</param>
-/// <param name="WatiParameters">Template values for this upload (for example image_url); null = the worker's defaults.</param>
 public sealed record UploadCheckFileCommand(
     string FileName,
     byte[] Content,
     Guid? CampaignId,
-    bool ForceRecheck,
-    bool? RunWati,
-    string? WatiTemplateName = null,
-    string? WatiBroadcastName = null,
-    IReadOnlyDictionary<string, string>? WatiParameters = null);
+    bool ForceRecheck);
 
 public sealed record RetryCheckJobCommand(Guid JobId);
 
 public sealed record CancelCheckJobCommand(Guid JobId, string? Reason);
 
 public sealed record SendWatiBroadcastCommand(SendBroadcastRequest Request);
+
+/// <summary>Put the failed messages of one finished send back in the queue (only failures a retry can fix).</summary>
+public sealed record RetryWatiBroadcastCommand(Guid BroadcastId);
 
 public sealed record RefreshWatiTemplatesCommand;
 
@@ -44,6 +42,7 @@ public sealed record RefreshWatiTemplatesCommand;
 /// </summary>
 public sealed class WhatsAppCommandHandler(
     IWhatsAppIntegrationStore store,
+    IWhatsAppRecipientGroupStore groups,
     IWhatsAppInbox inbox,
     ICampaignRepository campaigns,
     IAuditWriter audit,
@@ -139,17 +138,12 @@ public sealed class WhatsAppCommandHandler(
         var now = clock.UtcNow;
         var reference = NewReference("UPL", now);
 
-        var watiParameters = command.WatiParameters?
-            .Where(pair => !string.IsNullOrWhiteSpace(pair.Key))
-            .Select(pair => new { name = pair.Key.Trim(), value = pair.Value ?? string.Empty })
-            .ToList();
-
-        var hasWatiSettings = !string.IsNullOrWhiteSpace(command.WatiTemplateName)
-                              || !string.IsNullOrWhiteSpace(command.WatiBroadcastName)
-                              || watiParameters is { Count: > 0 };
-
         // THIS IS THE CONTRACT WITH THE WORKER (its UploadManifest). Property names are camelCase
         // on the wire; add to it freely, never rename.
+        //
+        // runWati IS ALWAYS FALSE: an upload validates numbers and nothing else. The worker ignores
+        // the field as well (since 15 October 2026), so an older or a newer side alone cannot turn
+        // a file into 450 messages again.
         var manifest = new
         {
             schemaVersion = 1,
@@ -169,17 +163,9 @@ public sealed class WhatsAppCommandHandler(
             options = new
             {
                 forceRecheck = command.ForceRecheck,
-                runWati = command.RunWati,
+                runWati = false,
                 allowDuplicateFile = command.ForceRecheck,
             },
-            wati = hasWatiSettings
-                ? new
-                {
-                    templateName = string.IsNullOrWhiteSpace(command.WatiTemplateName) ? null : command.WatiTemplateName.Trim(),
-                    broadcastName = string.IsNullOrWhiteSpace(command.WatiBroadcastName) ? null : command.WatiBroadcastName.Trim(),
-                    parameters = watiParameters,
-                }
-                : null,
         };
 
         await inbox.WriteUploadAsync(reference, extension, command.Content, JsonSerializer.Serialize(manifest, Json), cancellationToken);
@@ -198,7 +184,7 @@ public sealed class WhatsAppCommandHandler(
 
         return Result.Success(new CheckJobUploadResponse("Queued", reference, null, null,
             overview.Worker.Online
-                ? "The file is with the integration worker; the check starts within a few seconds."
+                ? "The file is with the integration worker; the check starts within a few seconds. Nobody is messaged - you choose who to message afterwards."
                 : "The file is saved, but the integration worker is not running right now. The check starts as soon as it is back."));
     }
 
@@ -213,11 +199,12 @@ public sealed class WhatsAppCommandHandler(
         }
 
         // The worker's own rule (JobStatusRules.CanRetry), repeated here only so the person gets
-        // the answer at once instead of a request the worker then turns down.
-        if (status is not ("Failed" or "Cancelled" or "CompletedWithErrors"))
+        // the answer at once instead of a request the worker then turns down. A completed check has
+        // nothing left to retry: messages are retried on their own send.
+        if (status is not ("Failed" or "Cancelled"))
         {
             return Result.Failure<CommandAcceptedResponse>(Error.InvalidTransition(
-                $"Only a check that failed, was stopped or finished with errors can be retried; this one is {status}."));
+                $"Only a check that failed or was stopped can be retried; this one is {status}."));
         }
 
         var accepted = await store.QueueCommandAsync("RetryJob", "CMD", new { jobId = command.JobId }, cancellationToken);
@@ -258,16 +245,54 @@ public sealed class WhatsAppCommandHandler(
 
     // ============================================================================ broadcast
 
+    /// <summary>
+    /// A SEND: the numbers the person selected - and only those - with the template and how to fill
+    /// it. Refused here, before the worker sees it, when the selection is larger than one send may
+    /// be (the worker's cap as it published it), so a person can never queue "everybody".
+    /// </summary>
     public async Task<Result<CommandAcceptedResponse>> HandleAsync(SendWatiBroadcastCommand command, CancellationToken cancellationToken)
     {
         var request = command.Request;
+        var selection = request.SelectedRecipients()
+            .Where(entry => !string.IsNullOrWhiteSpace(entry.Number))
+            .Select(entry => new { number = entry.Number.Trim(), sourceJobId = entry.SourceJobId })
+            .ToList();
+
+        if (selection.Count == 0)
+        {
+            return Result.Failure<CommandAcceptedResponse>(Error.Validation("Select at least one number."));
+        }
+
+        var overview = await store.GetOverviewAsync(cancellationToken);
+        var cap = overview.Settings.MaxRecipientsPerSend;
+        if (cap > 0 && selection.Count > cap)
+        {
+            return Result.Failure<CommandAcceptedResponse>(Error.Validation(
+                $"One send may message at most {cap:N0} numbers; {selection.Count:N0} are selected. Narrow the selection and send again."));
+        }
 
         if (request.CampaignId is { } campaignId && await campaigns.GetByIdAsync(campaignId, cancellationToken) is null)
         {
             return Result.Failure<CommandAcceptedResponse>(Error.NotFound("That campaign was not found."));
         }
 
-        // THIS IS THE CONTRACT WITH THE WORKER (its SendWatiBroadcastPayload).
+        string? groupName = null;
+        if (request.RecipientGroupId is { } groupId)
+        {
+            var group = await groups.GetAsync(groupId, cancellationToken);
+            if (group is null)
+            {
+                return Result.Failure<CommandAcceptedResponse>(Error.NotFound("That recipient group was not found."));
+            }
+
+            groupName = group.Group.Name;
+        }
+
+        var bindings = WhatsAppSendRules.CleanBindings(request.Bindings);
+        var tags = WhatsAppSendRules.CleanTags(request.Tags);
+
+        // THIS IS THE CONTRACT WITH THE WORKER (its SendWatiBroadcastPayload). "recipients" stays for
+        // an older worker; a current one reads "selection", which carries each number's check.
         var payload = new
         {
             templateName = request.TemplateName.Trim(),
@@ -276,8 +301,13 @@ public sealed class WhatsAppCommandHandler(
             parameters = (request.Values ?? new Dictionary<string, string>())
                 .Select(pair => new { name = pair.Key, value = pair.Value ?? string.Empty })
                 .ToList(),
-            recipients = request.Recipients.Where(r => !string.IsNullOrWhiteSpace(r)).Select(r => r.Trim()).Distinct().ToList(),
+            recipients = selection.Select(entry => entry.number).Distinct().ToList(),
             campaignId = request.CampaignId,
+            selection,
+            recipientGroupId = request.RecipientGroupId,
+            recipientGroupName = groupName,
+            tags,
+            bindings = bindings.Select(binding => new { name = binding.Name, source = binding.Source }).ToList(),
         };
 
         var accepted = await store.QueueCommandAsync("SendWatiBroadcast", "BRD", payload, cancellationToken);
@@ -290,9 +320,46 @@ public sealed class WhatsAppCommandHandler(
             WhatsAppAuditActionCodes.BroadcastRequested,
             request.CampaignId is null ? WhatsAppAuditActionCodes.BroadcastTarget : "Campaign",
             request.CampaignId ?? accepted.CommandId,
-            $"WhatsApp broadcast \"{payload.broadcastName}\" ({payload.templateName}) requested for {Wording.Count(payload.recipients.Count, "recipient")} as {accepted.Reference}.",
+            $"WhatsApp send \"{payload.broadcastName}\" ({payload.templateName}) requested for {Wording.Count(selection.Count, "selected number")}"
+            + (groupName is null ? string.Empty : $" from the group \"{groupName}\"")
+            + $" as {accepted.Reference}.",
             cancellationToken);
 
+        return Result.Success(accepted);
+    }
+
+    /// <summary>
+    /// Asks the worker to put a send's retryable failures back in the queue. The rule the worker
+    /// applies (a person's send, finished, with failures a retry can fix) is checked here too, so
+    /// the person gets the answer at once.
+    /// </summary>
+    public async Task<Result<CommandAcceptedResponse>> HandleAsync(RetryWatiBroadcastCommand command, CancellationToken cancellationToken)
+    {
+        var detail = await store.GetBroadcastAsync(command.BroadcastId, cancellationToken);
+        if (detail is null)
+        {
+            return Result.Failure<CommandAcceptedResponse>(Error.NotFound("That send was not found."));
+        }
+
+        if (!detail.Broadcast.PermittedActions.Contains("retry"))
+        {
+            return Result.Failure<CommandAcceptedResponse>(Error.InvalidTransition(
+                detail.Broadcast.Source != "Manual"
+                    ? "This send was made automatically by an older check; it cannot be retried. Select the numbers and send them again instead."
+                    : detail.Broadcast.RetryableFailures == 0
+                        ? "None of this send's messages failed for a reason a retry can fix."
+                        : $"This send is {detail.Broadcast.Status}; only a finished send with failed messages can be retried."));
+        }
+
+        var accepted = await store.QueueCommandAsync("RetryWatiJob", "CMD", new { watiJobId = command.BroadcastId }, cancellationToken);
+        if (accepted is null)
+        {
+            return Result.Failure<CommandAcceptedResponse>(Error.Dependency(WorkerNotInstalled));
+        }
+
+        await AuditAsync(WhatsAppAuditActionCodes.BroadcastRetryRequested, WhatsAppAuditActionCodes.BroadcastTarget, command.BroadcastId,
+            $"Retry of {Wording.Count(detail.Broadcast.RetryableFailures, "failed message")} of {detail.Broadcast.Reference} requested ({accepted.Reference}).",
+            cancellationToken);
         return Result.Success(accepted);
     }
 

@@ -7,6 +7,7 @@ import {
   AttributionSummary,
 } from '../models/campaign-contract.model';
 import { DonationRecord } from '../models/attribution.model';
+import { formatMoney } from './money-format';
 
 /**
  * Donation attribution.
@@ -278,7 +279,7 @@ export class AttributionStoreService {
       lifecycle: item.status,
       owner: item.donorName,
       downstreamStatus: item.attributionDescription,
-      amount: `${item.amount.toLocaleString('en-IN')} ${item.currencyCode}`,
+      amount: formatMoney(item.amount, item.currencyCode),
 
       // The screen used these to drive its own local rules. They are now read from what the server
       // actually said, so a button appears when the API would accept it and not otherwise.

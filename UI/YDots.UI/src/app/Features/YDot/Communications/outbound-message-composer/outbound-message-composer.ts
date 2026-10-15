@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AuthTokenService } from '../../../../Shared/services/auth-token.service';
 import { PageHeader } from '../../../../Shared/components/page-header/page-header';
+import { formatMoney } from '../../../../Shared/services/money-format';
 
 /* ---------------------------------------------------------------------- */
 /*  4.7 COM-UI-07 — Outbound message composer — supporting data contracts */
@@ -182,7 +183,7 @@ export class OutboundMessageComposerComponent {
       placeholders: [
         { key: 'first_name', label: 'First name', value: 'Meera' },
         { key: 'campaign_name', label: 'Campaign name', value: 'Winter Relief Appeal' },
-        { key: 'amount', label: 'Donation amount', value: '₹5,000' },
+        { key: 'amount', label: 'Donation amount', value: formatMoney(5000) },
         { key: 'receipt_id', label: 'Receipt reference', value: 'RCT-2026-33871' },
       ],
     },
@@ -210,7 +211,7 @@ export class OutboundMessageComposerComponent {
       purposeHint: 'Remind a donor of an outstanding pledge instalment in a warm, non-pressuring tone.',
       placeholders: [
         { key: 'first_name', label: 'First name', value: 'Meera' },
-        { key: 'pledge_amount', label: 'Pledge balance', value: '₹2,500' },
+        { key: 'pledge_amount', label: 'Pledge balance', value: formatMoney(2500) },
         { key: 'due_date', label: 'Due date', value: '20 Aug 2026' },
       ],
     },

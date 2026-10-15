@@ -250,6 +250,25 @@ public sealed partial class WhatsAppIntegrationStore
 
                 var filesByTask = resultFiles.ToDictionary(file => file.CheckNumberTaskId);
                 var dataFolder = !string.IsNullOrWhiteSpace(settings.Value.DataRoot);
+                var tenantId = TenantId;
+
+                // THE TRAIL FROM A CHECK TO ITS MESSAGES: every send that messaged numbers picked from
+                // this check, with how many of its messages came from here.
+                var sends = await context.Database
+                    .SqlQuery<CheckSendRow>($"""
+                        SELECT w.id, w.reference, w.broadcast_name, w.template_name, w.status, w.created_at_utc,
+                               w.requested_by_name,
+                               count(*)::int AS from_this_check,
+                               (count(*) FILTER (WHERE m.request_status = 'Accepted'))::int AS accepted_from_this_check
+                        FROM int_wati_messages m
+                        JOIN int_wati_jobs w ON w.id = m.wati_job_id
+                        WHERE m.tenant_id = {tenantId}
+                          AND m.source_job_id = {jobId}
+                        GROUP BY w.id, w.reference, w.broadcast_name, w.template_name, w.status, w.created_at_utc, w.requested_by_name
+                        """)
+                    .OrderByDescending(row => row.CreatedAtUtc)
+                    .Take(MaximumPageSize)
+                    .ToListAsync(cancellationToken);
 
                 return new CheckJobDetailResponse(
                     header,
@@ -275,13 +294,24 @@ public sealed partial class WhatsAppIntegrationStore
                         Results: job.WhatsAppYes + job.WhatsAppNo + job.WhatsAppUnknown > 0,
                         Raw: dataFolder && resultFiles.Any(file => !string.IsNullOrWhiteSpace(file.LocalZipPath)),
                         Invalid: job.InvalidLines > 0,
-                        Summary: dataFolder && !string.IsNullOrWhiteSpace(job.SummaryJsonPath)));
+                        Summary: dataFolder && !string.IsNullOrWhiteSpace(job.SummaryJsonPath)),
+                    sends.Select(send => new CheckJobSendView(
+                        send.Id,
+                        send.Reference,
+                        send.BroadcastName,
+                        send.TemplateName,
+                        send.Status,
+                        send.CreatedAtUtc,
+                        send.RequestedByName,
+                        send.FromThisCheck,
+                        send.AcceptedFromThisCheck)).ToList());
             },
             null);
 
     /// <summary>
-    /// The report: every distinct number of the job that has an answer, in file order, with what
-    /// WATI then did with it.
+    /// The report: every distinct number of the job that has an answer, in file order, with the
+    /// name the file gave and what became of the newest message sent to it from this check (picked
+    /// by a person, or - for an older check - sent automatically).
     ///
     /// A NUMBER WITHOUT AN ANSWER YET IS LEFT OUT rather than shown as "unknown". While a check is
     /// running the report is simply empty; "unknown" is reserved for the numbers CheckNumber.ai
@@ -302,17 +332,18 @@ public sealed partial class WhatsAppIntegrationStore
                     .SqlQuery<JobResultRow>($"""
                         SELECT n.normalized_number, n.country_iso, n.country_name, n.classification,
                                n.final_whatsapp_status, n.result_note, n.sheet_name, n.line_number,
-                               n.raw_value, n.sequence,
-                               m.status AS wati_status, m.skip_reason AS wati_skip_reason
+                               n.raw_value, n.sequence, n.contact_name,
+                               m.status AS wati_status, m.skip_reason AS wati_skip_reason, m.reference AS send_reference
                         FROM int_input_file_numbers n
-                        LEFT JOIN int_wati_messages m
-                               ON m.phone_number_id = n.phone_number_id
-                              AND m.wati_job_id = (SELECT w.id
-                                                     FROM int_wati_jobs w
-                                                    WHERE w.tenant_id = {tenantId}
-                                                      AND w.integration_job_id = {jobId}
-                                                    ORDER BY w.created_at_utc DESC
-                                                    LIMIT 1)
+                        LEFT JOIN LATERAL (
+                            SELECT mm.status, mm.skip_reason, w.reference
+                            FROM int_wati_messages mm
+                            JOIN int_wati_jobs w ON w.id = mm.wati_job_id
+                            WHERE mm.tenant_id = {tenantId}
+                              AND mm.phone_number_id = n.phone_number_id
+                              AND mm.source_job_id = {jobId}
+                            ORDER BY mm.queued_at_utc DESC
+                            LIMIT 1) m ON true
                         WHERE n.tenant_id = {tenantId}
                           AND n.job_id = {jobId}
                           AND n.classification IN ('Fresh', 'AlreadyChecked')
@@ -339,7 +370,9 @@ public sealed partial class WhatsAppIntegrationStore
                             row.LineNumber,
                             row.RawValue,
                             row.WatiStatus,
-                            row.WatiSkipReason);
+                            row.WatiSkipReason,
+                            row.ContactName,
+                            row.SendReference);
                     })
                     .ToList();
             },

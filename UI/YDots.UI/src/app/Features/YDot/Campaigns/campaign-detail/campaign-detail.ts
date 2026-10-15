@@ -30,6 +30,7 @@ import { LeadListItem } from '../../../../Shared/models/donor-contract.model';
 import { fetchAllPages } from '../../../../Shared/services/paging';
 import { DonationListItem, MoneyResponse } from '../../../../Shared/models/payment.model';
 import { apiErrorMessage } from '../../../../Shared/models/api-response.model';
+import { formatMoney } from '../../../../Shared/services/money-format';
 
 /** One named lifecycle transition offered from a given state. */
 interface LifecycleTransition {
@@ -470,7 +471,7 @@ export class CampaignDetailComponent {
   protected readonly targetsAmount = computed(() => this.targetAmount());
 
   /** The fundraising target, formatted for the overview card. */
-  protected readonly fundraisingTargetLabel = computed(() => this.rupeeINR(this.targetAmount()));
+  protected readonly fundraisingTargetLabel = computed(() => this.wholeAmount(this.targetAmount()));
 
   /**
    * This campaign's tracking assets, as CAM lists them (GET /tracking-assets?campaignId=).
@@ -688,21 +689,13 @@ export class CampaignDetailComponent {
       .replace(/^./, (first) => first.toUpperCase());
   }
 
-  /** An amount as its own currency prints it, rather than as a bare number. */
+  /** An amount in its own currency, in the platform's money format. */
   private money(amount: Pick<MoneyResponse, 'amount' | 'currencyCode'> | null | undefined): string {
     if (!amount) {
       return '—';
     }
 
-    try {
-      return new Intl.NumberFormat('en-IN', {
-        style: 'currency',
-        currency: amount.currencyCode || 'INR',
-        maximumFractionDigits: 2,
-      }).format(amount.amount ?? 0);
-    } catch {
-      return `${amount.currencyCode ?? ''} ${amount.amount ?? 0}`.trim();
-    }
+    return formatMoney(amount.amount ?? 0, amount.currencyCode);
   }
 
   private donationWhen(value: string | null | undefined): string {
@@ -879,13 +872,14 @@ export class CampaignDetailComponent {
 
   // ================= Design-mirror dashboard (KPI cards, channels, calendar) =================
 
-  /** A figure with the rupee mark and Indian grouping — ₹2,500 — for chart ticks and cards. */
-  protected rupeeINR(value: number): string {
-    try {
-      return `₹${new Intl.NumberFormat('en-IN', { maximumFractionDigits: 0 }).format(value)}`;
-    } catch {
-      return `₹${value}`;
-    }
+  /** The campaign's currency code, from the "INR — Indian Rupee" the record carries. */
+  private readonly campaignCurrency = computed(
+    () => (this.liveRecord()?.currencyName ?? '').split('—')[0].split('-')[0].trim() || null,
+  );
+
+  /** A whole figure in the campaign's currency - ₹2,500 - for chart ticks and cards. */
+  protected wholeAmount(value: number): string {
+    return formatMoney(value ?? 0, this.campaignCurrency(), { style: 'whole' });
   }
 
   // ---------- Header figures: real data for this campaign ----------
@@ -954,7 +948,7 @@ export class CampaignDetailComponent {
   );
 
   // ---------- Monthly revenue (this month's donations vs last month's) ----------
-  protected readonly kpiRevenue = computed(() => this.rupeeINR(this.monthlyDonations().current));
+  protected readonly kpiRevenue = computed(() => this.wholeAmount(this.monthlyDonations().current));
   protected readonly kpiRevenueChange = computed(() =>
     this.changeOf(this.monthlyDonations().current, this.monthlyDonations().previous),
   );
@@ -1449,14 +1443,7 @@ export class CampaignDetailComponent {
       return '—';
     }
 
-    const formatted = amount.toLocaleString(undefined, {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    });
-
-    const code = (record?.currencyName ?? '').split('—')[0].split('-')[0].trim();
-
-    return code ? `${code} ${formatted}` : formatted;
+    return formatMoney(amount, this.campaignCurrency());
   });
   /** Country / State / City / Zip code — captured on Wizard step 3. */
   protected readonly locationLabel = computed(() => {
@@ -2305,7 +2292,7 @@ export class CampaignDetailComponent {
 
   // ================= Formatting helpers =================
   protected formatAmount(value: number): string {
-    return '₹' + value.toLocaleString('en-IN');
+    return formatMoney(value ?? 0, this.campaignCurrency());
   }
   protected formatDate(iso: string): string {
     if (!iso) {

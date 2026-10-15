@@ -22,6 +22,7 @@ import {
   DonationIntentResponse,
   unpayableReason,
 } from '../../../../../Shared/models/payment.model';
+import { formatMoney } from '../../../../../Shared/services/money-format';
 
 type UiState =
   | 'ready'
@@ -433,14 +434,8 @@ export class DonorformComponent {
       return '';
     }
 
-    const formatted = amount.toLocaleString(undefined, {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    });
-
-    const code = this.campaignAmountCurrency();
-
-    return code ? `${code} ${formatted}` : formatted;
+    // EXACT: the figure the donor is about to be charged, in the platform's money format.
+    return formatMoney(amount, this.campaignAmountCurrency() || null, { style: 'exact' });
   });
 
   /**
@@ -641,8 +636,7 @@ export class DonorformComponent {
     if (!this.donationAmount() || Number.isNaN(n)) {
       return '';
     }
-    const cur = this.currencyLabel(this.currency()) || this.currency();
-    return `${cur} ${n.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    return formatMoney(n, this.currencyLabel(this.currency()) || this.currency() || null, { style: 'exact' });
   });
 
 

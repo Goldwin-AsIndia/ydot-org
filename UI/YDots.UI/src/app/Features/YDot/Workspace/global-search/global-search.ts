@@ -2,6 +2,7 @@ import { CommonModule } from '@angular/common';
 import { Component, computed, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { PageHeader } from '../../../../Shared/components/page-header/page-header';
+import { formatMoney } from '../../../../Shared/services/money-format';
 
 /**
  * SCR-UX-003 — Global search.
@@ -259,7 +260,7 @@ export class GlobalSearchComponent {
       reference: 'DONATION-2026-0921',
       primaryLabel: 'Corporate Donation from GreenSol India Pvt Ltd',
       ownerScope: 'Donations · Created 18 Jul 2026 · Arun Kumar',
-      amount: '₹12,36,500',
+      amount: formatMoney(1236500),
       resultType: 'Completed',
       tone: 'success',
       maskedSecondary: 'Donor PAN ••••••••',
@@ -268,7 +269,7 @@ export class GlobalSearchComponent {
       reference: 'DONATION-DRIVE-2026-0456',
       primaryLabel: 'Education Support Donation Drive',
       ownerScope: 'Donations · Created 15 Jul 2026 · Meera Nair',
-      amount: '₹3,45,000',
+      amount: formatMoney(345000),
       resultType: 'In Progress',
       tone: 'info',
     },
@@ -276,7 +277,7 @@ export class GlobalSearchComponent {
       reference: 'DONATION-2026-0765',
       primaryLabel: 'Individual Donation Drive - July',
       ownerScope: 'Donations · Created 12 Jul 2026 · John Paul',
-      amount: '₹75,600',
+      amount: formatMoney(75600),
       resultType: 'Received',
       tone: 'accent',
     },

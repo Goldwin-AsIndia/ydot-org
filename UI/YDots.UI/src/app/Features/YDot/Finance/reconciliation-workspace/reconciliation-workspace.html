@@ -304,12 +304,12 @@
               <td data-label="Settlement state">
                 <span class="rwn-badge rwn-badge-blue">{{ r.settlementState }}</span>
               </td>
-              <td class="rwn-col-num rwn-amount" data-label="Gross">₹ {{ formatAmount(r.grossAmount) }}</td>
-              <td class="rwn-col-num" data-label="Fees + tax">₹ {{ formatAmount(r.feesAndTax) }}</td>
-              <td class="rwn-col-num rwn-amount" data-label="Net">₹ {{ formatAmount(r.netAmount) }}</td>
+              <td class="rwn-col-num rwn-amount" data-label="Gross">{{ formatAmount(r.grossAmount) }}</td>
+              <td class="rwn-col-num" data-label="Fees + tax">{{ formatAmount(r.feesAndTax) }}</td>
+              <td class="rwn-col-num rwn-amount" data-label="Net">{{ formatAmount(r.netAmount) }}</td>
               <td class="rwn-col-num" data-label="Variance">
                 <span [class]="varianceClass(r.variance)">
-                  {{ r.variance === 0 ? '—' : '₹ ' + formatAmount(r.variance) }}
+                  {{ r.variance === 0 ? '—' : formatAmount(r.variance) }}
                 </span>
               </td>
               <td data-label="Score">
@@ -357,15 +357,15 @@
           </div>
           <div>
             <dt>Gross amount</dt>
-            <dd class="rwn-amount">₹ {{ formatAmount(candidate.grossAmount) }}</dd>
+            <dd class="rwn-amount">{{ formatAmount(candidate.grossAmount) }}</dd>
           </div>
           <div>
             <dt>Fees and tax</dt>
-            <dd>₹ {{ formatAmount(candidate.feesAndTax) }}</dd>
+            <dd>{{ formatAmount(candidate.feesAndTax) }}</dd>
           </div>
           <div>
             <dt>Net amount</dt>
-            <dd class="rwn-amount">₹ {{ formatAmount(candidate.netAmount) }}</dd>
+            <dd class="rwn-amount">{{ formatAmount(candidate.netAmount) }}</dd>
           </div>
           <div>
             <dt>Suggested match score</dt>
@@ -394,7 +394,7 @@
               <option value="" disabled>Select Match</option>
               <option [value]="candidate.settlementLine">{{ candidate.settlementLine }} (suggested)</option>
               @for (line of manualMatchAlternatives(); track line.lineReference) {
-                <option [value]="line.lineReference">{{ line.lineReference }} (manual · ₹{{ formatAmount(line.net) }})</option>
+                <option [value]="line.lineReference">{{ line.lineReference }} (manual · {{ formatAmount(line.net) }})</option>
               } @empty {
                 <option disabled>No other unclaimed settlement lines available</option>
               }

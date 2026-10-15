@@ -3,6 +3,7 @@ using YDots.DON.Application.Features.Donors.Queries.ExportDonorHistory;
 using FluentValidation;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using YDots.DON.Application.Common.Formatting;
 using YDots.DON.Application.Common.Settings;
 using YDots.DON.Application.Features.Dashboard.Queries;
 using YDots.DON.Application.Features.AssignmentBoard.Commands.RouteLeads;
@@ -48,6 +49,13 @@ public static class DependencyInjection
         services.Configure<ClientAppSettings>(configuration.GetSection(ClientAppSettings.SectionName));
         services.Configure<DonorSettings>(configuration.GetSection(DonorSettings.SectionName));
         services.Configure<SeedSettings>(configuration.GetSection(SeedSettings.SectionName));
+
+        // The platform's money format, installed into MoneyText once so every amount and count
+        // this service writes is grouped and marked the same way as the other three services'.
+        var moneyFormat = configuration.GetSection(MoneyFormatSettings.SectionName).Get<MoneyFormatSettings>()
+                          ?? new MoneyFormatSettings();
+        services.Configure<MoneyFormatSettings>(configuration.GetSection(MoneyFormatSettings.SectionName));
+        MoneyText.UseSettings(moneyFormat);
 
         // ---- FluentValidation -----------------------------------------------------------------
         services.AddValidatorsFromAssembly(typeof(DependencyInjection).Assembly, includeInternalTypes: true);

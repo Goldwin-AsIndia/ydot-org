@@ -10,6 +10,7 @@ import {
 import { ToastService } from '../../../../Shared/services/toast.service';
 import { FinanceStateService } from '../shared/finance-state.service';
 import { PageHeader } from '../../../../Shared/components/page-header/page-header';
+import { formatMoney } from '../../../../Shared/services/money-format';
 
 /**
  * FIN-UI-08 — Financial correction or reversal.
@@ -96,7 +97,7 @@ export class FinancialCorrectionOrReversalComponent {
     const before = this.financeState.findAmountForReference(this.originalTransaction());
     const amount = this.affectedAmount();
     if (before === null || amount === null) return '—';
-    return `₹ ${this.formatAmount(before - amount)}`;
+    return `${this.formatAmount(before - amount)}`;
   });
   protected readonly reasonCategory = signal('');
   protected readonly reasonCategoryOptions = ['Provider statement correction', 'Duplicate processing', 'System error', 'Approved adjustment'];
@@ -315,8 +316,9 @@ export class FinancialCorrectionOrReversalComponent {
   });
 
   // ================= Formatting helpers =================
+  /** Finance figures are exact to the paisa, in the platform's money format (₹23,81,600.00). */
   protected formatAmount(value: number | null): string {
     if (value === null || value === undefined) return '—';
-    return value.toLocaleString('en-IN');
+    return formatMoney(value, null, { style: 'exact' });
   }
 }

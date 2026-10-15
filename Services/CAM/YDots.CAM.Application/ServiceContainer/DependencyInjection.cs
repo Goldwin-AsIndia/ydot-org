@@ -1,6 +1,7 @@
 using FluentValidation;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using YDots.CAM.Application.Common.Formatting;
 using YDots.CAM.Application.Common.Settings;
 using YDots.CAM.Application.Features.CampaignReadiness.Commands.ManageReadiness;
 using YDots.CAM.Application.Features.CampaignReadiness.Queries.ReadinessQueries;
@@ -55,6 +56,13 @@ public static class DependencyInjection
         services.Configure<SeedSettings>(configuration.GetSection(SeedSettings.SectionName));
         services.Configure<WhatsAppIntegrationSettings>(configuration.GetSection(WhatsAppIntegrationSettings.SectionName));
 
+        // The platform's money format, installed into MoneyText once so every amount and count
+        // this service writes is grouped and marked the same way as the other three services'.
+        var moneyFormat = configuration.GetSection(MoneyFormatSettings.SectionName).Get<MoneyFormatSettings>()
+                          ?? new MoneyFormatSettings();
+        services.Configure<MoneyFormatSettings>(configuration.GetSection(MoneyFormatSettings.SectionName));
+        MoneyText.UseSettings(moneyFormat);
+
         // ---- FluentValidation ---------------------------------------------------------------
         //
         // Scanned rather than listed, unlike the handlers. A validator is found by the TYPE it
@@ -87,6 +95,8 @@ public static class DependencyInjection
 
         // ---- WhatsApp outreach: CheckNumber.ai + WATI, carried out by the YDot.Integration worker ----
         services.AddScoped<WhatsAppQueryHandler>();
+        services.AddScoped<WhatsAppGroupQueryHandler>();
+        services.AddScoped<WhatsAppGroupCommandHandler>();
 
         // The landing page's campaign figures.
         services.AddScoped<CampaignDashboardQueryHandler>();

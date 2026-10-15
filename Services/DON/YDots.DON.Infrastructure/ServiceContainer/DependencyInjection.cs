@@ -103,6 +103,9 @@ public static class DependencyInjection
         services.AddScoped<DemoDonorSeeder>();
         services.AddHostedService<DemoDataSeedingService>();
 
+        // The currency master's symbols and decimal places, read into MoneyText in the background.
+        services.AddHostedService<CurrencyRuleRefresher>();
+
         return services;
     }
 

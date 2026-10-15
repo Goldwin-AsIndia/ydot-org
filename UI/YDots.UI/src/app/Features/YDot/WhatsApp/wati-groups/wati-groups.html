@@ -1,0 +1,166 @@
+<main class="app-wrapper">
+<div class="page-wrapper">
+<div class="container-fluid px-4 py-3">
+<section class="cn wt">
+
+  <app-wati-head view="groups" />
+
+  @if (notice(); as message) {
+    <p class="cn-alert cn-alert--ok" role="status"><i class="ph-duotone ph-check-circle" aria-hidden="true"></i><span>{{ message }}</span></p>
+  }
+  @if (problem(); as message) {
+    <p class="cn-alert cn-alert--bad" role="alert"><i class="ph-duotone ph-warning-circle" aria-hidden="true"></i><span>{{ message }}</span></p>
+  }
+  @if (actionProblem() && !detailId() && !editTarget() && !deleteTarget()) {
+    <p class="cn-alert cn-alert--bad" role="alert"><i class="ph-duotone ph-warning-circle" aria-hidden="true"></i><span>{{ actionProblem() }}</span></p>
+  }
+
+  <section class="cn-sheet" aria-label="Recipient groups">
+    <div class="cn-bar-tools">
+      <h2 class="cn-h cn-h--sub">Recipient groups <span class="cn-h-note">{{ n(groups().length) }}</span></h2>
+      <label class="cn-search">
+        <i class="ph-duotone ph-magnifying-glass" aria-hidden="true"></i>
+        <input type="search" placeholder="Name, tag or campaign" [value]="query()" (input)="query.set($any($event.target).value)" aria-label="Search the groups" />
+      </label>
+      @if (tagOptions().length > 1) {
+        <app-wa-select compact label="All tags" [options]="tagOptions()" [value]="tagFilter()" (valueChange)="tagFilter.set($event)" />
+      }
+    </div>
+
+    @if (rows().length === 0) {
+      <div class="wt-none">
+        <i class="ph-duotone ph-users-three" aria-hidden="true"></i>
+        @if (loading()) {
+          <h2 class="cn-h">Loading the groups…</h2>
+        } @else if (groups().length > 0) {
+          <h2 class="cn-h">No group matches</h2>
+        } @else {
+          <h2 class="cn-h">No groups yet</h2>
+          <p class="cn-empty">Pick numbers on the Send message tab and choose “Save as group” to keep them for later sends.</p>
+          <a routerLink="/app/whatsapp/wati" class="btn btn-primary btn-sm"><i class="ph-duotone ph-paper-plane-tilt" aria-hidden="true"></i> Pick numbers</a>
+        }
+      </div>
+    } @else {
+      <div class="cn-scroll">
+        <table class="cn-table wt-list">
+          <thead>
+            <tr><th>Group</th><th>Tags</th><th>Campaign</th><th class="r">Numbers</th><th>Sends</th><th>Last changed</th><th></th></tr>
+          </thead>
+          <tbody>
+            @for (g of rows(); track g.id) {
+              <tr class="cn-row" tabindex="0" (click)="open(g)" (keydown.enter)="open(g)">
+                <td><span class="cn-strong">{{ g.name }}</span>@if (g.description) { <small>{{ g.description }}</small> }</td>
+                <td data-l="Tags">
+                  @if (g.tags.length > 0) { <span class="wt-chips">@for (t of g.tags; track t) { <span class="wt-chip">{{ t }}</span> }</span> }
+                  @else { <span class="wt-dash">—</span> }
+                </td>
+                <td data-l="Campaign">{{ g.campaignName || '—' }}</td>
+                <td class="r" data-l="Numbers"><span class="cn-num cn-strong">{{ n(g.reachableCount) }}</span><small>{{ g.reachableCount === g.memberCount ? 'all on WhatsApp' : 'of ' + n(g.memberCount) + ' on WhatsApp' }}</small></td>
+                <td data-l="Sends">@if (g.sendCount > 0) { {{ n(g.sendCount) }}<small>last {{ dt(g.lastSentAtUtc) }}</small> } @else { <span class="wt-dash">Never sent</span> }</td>
+                <td data-l="Last changed">{{ dt(g.updatedAtUtc ?? g.createdAtUtc) }}<small>{{ g.updatedByName || g.createdByName || '' }}</small></td>
+                <td class="wt-acts-cell" (click)="$event.stopPropagation()">
+                  <span class="wt-acts">
+                    @if (can(g, 'use')) { <button type="button" class="btn btn-primary btn-sm" (click)="use(g)"><i class="ph-duotone ph-paper-plane-tilt" aria-hidden="true"></i> Use for a send</button> }
+                    @if (can(g, 'edit')) { <button type="button" class="cn-mini" (click)="openEdit(g)"><i class="ph-duotone ph-pencil-simple" aria-hidden="true"></i>Edit</button> }
+                    @if (can(g, 'delete')) { <button type="button" class="cn-mini" (click)="deleteTarget.set(g)"><i class="ph-duotone ph-trash" aria-hidden="true"></i>Delete</button> }
+                  </span>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+  </section>
+  <p class="wt-zone">A group keeps each number with the check it was picked from. Whether a number is still on WhatsApp is read again every time the group is shown or used, so a send never relies on an old answer.</p>
+</section>
+</div>
+</div>
+</main>
+
+<app-popup [open]="!!detailId()" mode="drawer" size="md" icon="ph-duotone ph-users-three"
+           kicker="Recipient group" [title]="detail()?.group?.name ?? 'Group'"
+           [lead]="detail() ? n(detail()!.group.reachableCount) + ' of ' + n(detail()!.group.memberCount) + ' numbers on WhatsApp' : ''" (closed)="close()">
+  @if (detail(); as d) {
+    <div class="wt-detail">
+      @if (actionProblem(); as message) {
+        <p class="cn-alert cn-alert--bad" role="alert"><i class="ph-duotone ph-warning-circle" aria-hidden="true"></i><span>{{ message }}</span></p>
+      }
+      <dl class="yp-facts">
+        @if (d.group.description) { <div><dt>Description</dt><dd>{{ d.group.description }}</dd></div> }
+        <div><dt>Campaign</dt><dd>{{ d.group.campaignName || '—' }}</dd></div>
+        <div><dt>Tags</dt><dd>{{ d.group.tags.length > 0 ? d.group.tags.join(', ') : '—' }}</dd></div>
+        <div><dt>Sends from it</dt><dd>{{ d.group.sendCount > 0 ? n(d.group.sendCount) + ' · last ' + dt(d.group.lastSentAtUtc) : 'Never sent' }}</dd></div>
+        <div><dt>Created</dt><dd>{{ dt(d.group.createdAtUtc) }}<small>{{ d.group.createdByName }}</small></dd></div>
+      </dl>
+
+      <p class="cn-label">Numbers</p>
+      <div class="wt-mini-wrap">
+      <table class="wt-mini-table">
+        <thead><tr>@if (canEditDetail()) { <th></th> }<th>Number</th><th>From check</th><th>On WhatsApp</th><th>Last messaged</th></tr></thead>
+        <tbody>
+          @for (m of d.members; track m.number) {
+            <tr>
+              @if (canEditDetail()) { <td><input type="checkbox" [checked]="isMarked(m.number)" (change)="mark(m.number)" [attr.aria-label]="'Mark ' + m.number + ' for removal'" /></td> }
+              <td><span class="cn-num wt-nowrap">{{ m.number }}</span>@if (m.contactName) { <small>{{ m.contactName }}</small> }</td>
+              <td class="cn-num">{{ m.sourceJobNumber || '—' }}</td>
+              <td><span class="cn-res" [class.cn-res--yes]="m.reachable" [class.cn-res--no]="!m.reachable">{{ m.reachable ? 'Yes' : 'No longer' }}</span></td>
+              <td>{{ m.lastMessagedAtUtc ? dt(m.lastMessagedAtUtc) : 'Never' }}</td>
+            </tr>
+          } @empty {
+            <tr><td colspan="5">The group is empty.</td></tr>
+          }
+        </tbody>
+      </table>
+      </div>
+    </div>
+  } @else if (detailLoading()) {
+    <p class="cn-empty">Loading the group…</p>
+  }
+  <ng-container popupActions>
+    @if (detail(); as d) {
+      @if (canEditDetail() && marked().size > 0) {
+        <button type="button" class="btn btn-outline-secondary btn-sm" (click)="removeMarked()">{{ busy() ? 'Removing…' : 'Remove ' + n(marked().size) + ' from the group' }}</button>
+      }
+      @if (d.group.permittedActions.includes('use')) {
+        <button type="button" class="btn btn-primary btn-sm" (click)="use(d.group)"><i class="ph-duotone ph-paper-plane-tilt" aria-hidden="true"></i> Use for a send</button>
+      }
+    }
+    <button type="button" class="btn btn-outline-secondary btn-sm" (click)="close()">Close</button>
+  </ng-container>
+</app-popup>
+
+<app-popup [open]="!!editTarget()" kicker="Recipient group" title="Edit the group" icon="ph-duotone ph-pencil-simple" size="md" (closed)="editTarget.set(null)">
+  <div class="wt-form">
+    <label class="wt-value"><span class="cn-label">Name <span class="ydot-req">*</span></span>
+      <input type="text" class="wt-input" maxlength="120" [value]="editName()" (input)="editName.set($any($event.target).value)" aria-label="Group name" /></label>
+    <label class="wt-value"><span class="cn-label">Description</span>
+      <input type="text" class="wt-input" maxlength="500" [value]="editDescription()" (input)="editDescription.set($any($event.target).value)" aria-label="Description" /></label>
+    <label class="wt-value"><span class="cn-label">Campaign</span>
+      <app-wa-select compact label="No campaign" [options]="campaignOptions()" [value]="editCampaign()" (valueChange)="editCampaign.set($event)" /></label>
+    <label class="wt-value"><span class="cn-label">Tags, separated by commas</span>
+      <input type="text" class="wt-input" [value]="editTags()" (input)="editTags.set($any($event.target).value)" aria-label="Tags" /></label>
+  </div>
+  @if (actionProblem(); as message) {
+    <p class="cn-alert cn-alert--bad" role="alert"><i class="ph-duotone ph-warning-circle" aria-hidden="true"></i><span>{{ message }}</span></p>
+  }
+  <ng-container popupActions>
+    @if (!busy()) { <button type="button" class="btn btn-outline-secondary btn-sm" (click)="editTarget.set(null)">Cancel</button> }
+    @if (editName().trim().length >= 3) {
+      <button type="button" class="btn btn-primary btn-sm" (click)="saveEdit()">{{ busy() ? 'Saving…' : 'Save' }}</button>
+    }
+  </ng-container>
+</app-popup>
+
+<app-popup [open]="!!deleteTarget()" kicker="Recipient group" title="Delete this group?" icon="ph-duotone ph-trash" size="sm" tone="danger" (closed)="deleteTarget.set(null)">
+  @if (deleteTarget(); as g) {
+    <p class="wt-fine wt-left">“{{ g.name }}” and its {{ n(g.memberCount) }} {{ g.memberCount === 1 ? 'number' : 'numbers' }} will be deleted. The numbers stay validated, and sends made from the group keep its name in the send log.</p>
+  }
+  @if (actionProblem(); as message) {
+    <p class="cn-alert cn-alert--bad" role="alert"><i class="ph-duotone ph-warning-circle" aria-hidden="true"></i><span>{{ message }}</span></p>
+  }
+  <ng-container popupActions>
+    @if (!busy()) { <button type="button" class="btn btn-outline-secondary btn-sm" (click)="deleteTarget.set(null)">Keep it</button> }
+    <button type="button" class="btn btn-danger btn-sm" (click)="confirmDelete()">{{ busy() ? 'Deleting…' : 'Delete the group' }}</button>
+  </ng-container>
+</app-popup>

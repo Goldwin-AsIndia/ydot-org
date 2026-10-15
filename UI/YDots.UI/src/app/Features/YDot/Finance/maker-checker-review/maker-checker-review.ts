@@ -11,6 +11,7 @@ import {
 import { ToastService } from '../../../../Shared/services/toast.service';
 import { FinanceStateService } from '../shared/finance-state.service';
 import { PageHeader } from '../../../../Shared/components/page-header/page-header';
+import { formatMoney } from '../../../../Shared/services/money-format';
 
 /**
  * FIN-UI-07 — Maker-checker review.
@@ -153,10 +154,10 @@ export class MakerCheckerReviewComponent {
     const correction = this.linkedCorrection();
     if (correction) {
       return correction.beforeAmount !== null
-        ? `₹ ${this.formatAmount(correction.beforeAmount)} · Gross amount`
+        ? `${this.formatAmount(correction.beforeAmount)} · Gross amount`
         : 'No prior recorded amount for this reference';
     }
-    return '₹ 55,000.00 · Gross amount';
+    return `${this.formatAmount(55000)} · Gross amount`;
   });
   protected readonly proposedValue = computed(() => {
     const match = this.linkedMatch();
@@ -166,9 +167,9 @@ export class MakerCheckerReviewComponent {
     const correction = this.linkedCorrection();
     if (correction) {
       const after = correction.beforeAmount !== null ? correction.beforeAmount - correction.affectedAmount : correction.affectedAmount;
-      return `₹ ${this.formatAmount(after)} · Gross amount (${correction.correctionType})`;
+      return `${this.formatAmount(after)} · Gross amount (${correction.correctionType})`;
     }
-    return '₹ 54,750.00 · Gross amount';
+    return `${this.formatAmount(54750)} · Gross amount`;
   });
   protected readonly amountImpact = computed(() => {
     const match = this.linkedMatch();
@@ -186,7 +187,7 @@ export class MakerCheckerReviewComponent {
     if (match) return `Manual match proposed against settlement line ${match.settlementLine}, suggested match score ${match.suggestedMatchScore}%.`;
     const row = this.linkedLedgerRow();
     if (row) return `Manual match proposed against settlement line ${row.settlementLine}, suggested match score ${row.suggestedMatchScore}%.`;
-    return 'Provider settlement statement shows a net of ₹54,750 for this payment after correcting a duplicate fee deduction.';
+    return `Provider settlement statement shows a net of ${formatMoney(54750)} for this payment after correcting a duplicate fee deduction.`;
   });
   protected readonly evidence = computed(() => {
     const correction = this.linkedCorrection();
@@ -382,7 +383,8 @@ export class MakerCheckerReviewComponent {
   }));
 
   // ================= Formatting helpers =================
+  /** Finance figures are exact to the paisa, in the platform's money format (₹23,81,600.00). */
   protected formatAmount(value: number): string {
-    return value.toLocaleString('en-IN');
+    return formatMoney(value ?? 0, null, { style: 'exact' });
   }
 }

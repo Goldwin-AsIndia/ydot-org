@@ -4,6 +4,7 @@ using YDots.DON.Application.Common.Abstractions.Persistence;
 using YDots.DON.Application.Common.Abstractions.Security;
 using YDots.DON.Application.Common.Abstractions.Services;
 using YDots.DON.Application.Common.Constants;
+using YDots.DON.Application.Common.Formatting;
 using YDots.DON.Application.Common.Models;
 using YDots.DON.Application.Common.Results;
 using YDots.DON.Application.Features.Donor360.DTOs;
@@ -102,7 +103,7 @@ public sealed class CreateIntentCommandHandler(
 
         await auditWriter.WriteAsync(
             new AuditEntry(AuditActionCodes.DonorIntentCreated, nameof(Donor), donor.Id, AuditResult.Succeeded,
-                $"Intent {promise.Reference} recorded for {promise.Currency} {promise.Amount}."),
+                $"Intent {promise.Reference} recorded for {MoneyText.Format(promise.Amount, promise.Currency)}."),
             cancellationToken);
 
         await unitOfWork.SaveChangesAsync(cancellationToken);

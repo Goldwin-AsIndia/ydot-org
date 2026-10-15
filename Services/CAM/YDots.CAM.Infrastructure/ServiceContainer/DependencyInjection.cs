@@ -120,6 +120,10 @@ public static class DependencyInjection
         services.AddScoped<IWhatsAppIntegrationStore, WhatsAppIntegrationStore>();
         services.AddSingleton<IWhatsAppInbox, WhatsAppInbox>();
 
+        // Recipient groups are CAM's own tables (EF, organisation-filtered), with live figures read
+        // from the worker's tables in the same request.
+        services.AddScoped<IWhatsAppRecipientGroupStore, WhatsAppRecipientGroupStore>();
+
         // ---- Authorization -----------------------------------------------------------------------------------
         //
         // The policy PROVIDER is what turns [HasPermission("cam.campaigns.approve")] into a
@@ -148,6 +152,9 @@ public static class DependencyInjection
         services.AddScoped<DemoCampaignSeeder>();
         services.AddScoped<DemoWhatsAppSeeder>();
         services.AddHostedService<DemoDataSeedingService>();
+
+        // The currency master's symbols and decimal places, read into MoneyText in the background.
+        services.AddHostedService<CurrencyRuleRefresher>();
 
         return services;
     }

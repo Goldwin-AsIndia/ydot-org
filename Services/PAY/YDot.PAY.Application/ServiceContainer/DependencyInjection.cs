@@ -1,6 +1,7 @@
 using FluentValidation;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using YDot.PAY.Application.Common.Formatting;
 using YDot.PAY.Application.Common.Settings;
 using YDot.PAY.Application.Features.Dashboard.Queries;
 using YDot.PAY.Application.Features.Donations.Commands.ManageDonation;
@@ -45,6 +46,13 @@ public static class DependencyInjection
         services.Configure<EmailSettings>(configuration.GetSection(EmailSettings.SectionName));
         services.Configure<IdentityIntegrationSettings>(
             configuration.GetSection(IdentityIntegrationSettings.SectionName));
+
+        // The platform's money format, installed into MoneyText once so the static mappers that
+        // write every amount read it without each taking a formatter as a parameter.
+        var moneyFormat = configuration.GetSection(MoneyFormatSettings.SectionName).Get<MoneyFormatSettings>()
+                          ?? new MoneyFormatSettings();
+        services.Configure<MoneyFormatSettings>(configuration.GetSection(MoneyFormatSettings.SectionName));
+        MoneyText.UseSettings(moneyFormat);
 
         // ---- FluentValidation ---------------------------------------------------------------
         //

@@ -128,6 +128,9 @@ public static class DependencyInjection
         // rather than to the platform's front door. Reads IAM's domain table over the shared
         // database, which makes it scoped like every other reader here.
         services.AddScoped<ITenantHostDirectory, TenantHostDirectory>();
+
+        // The currency master's symbols and decimal places, read into MoneyText in the background.
+        services.AddHostedService<CurrencyRuleRefresher>();
         services.AddScoped<IIdentityAccountService, IdentityAccountService>();
 
         // ---- Supporting services ---------------------------------------------------------------------------

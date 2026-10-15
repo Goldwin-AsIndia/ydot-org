@@ -17,6 +17,7 @@ import {
 } from '../models/budget-target-plan.model';
 import { CampaignStoreService } from './campaign-store.service';
 import { PeopleDirectoryService } from './people-directory.service';
+import { formatMoney } from './money-format';
 
 /** Result of a mutating store call — carries the version acted on and a stable effective time. */
 export interface PlanMutationResult {
@@ -530,11 +531,11 @@ export class BudgetTargetStoreService {
 
       // Only the approved version is being run to, so only it has an actual worth reporting.
       actualReconciledResult: version.countsTowardTotals
-        ? `${version.actualReconciledAmount.toLocaleString('en-IN')} ${version.currencyCode}`
+        ? formatMoney(version.actualReconciledAmount, version.currencyCode)
         : '—',
 
       variance: version.countsTowardTotals
-        ? `${version.variance >= 0 ? '+' : ''}${version.variance.toLocaleString('en-IN')} `
+        ? `${formatMoney(version.variance, version.currencyCode, { signed: true })} `
           + `(${version.variancePercentage >= 0 ? '+' : ''}${version.variancePercentage}%)`
         : '—',
     };

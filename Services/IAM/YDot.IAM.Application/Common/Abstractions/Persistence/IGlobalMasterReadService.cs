@@ -1,5 +1,6 @@
 using YDot.IAM.Application.Common.Models;
 using YDot.IAM.Application.Features.GlobalMasters.DTOs;
+using YDot.IAM.Application.Features.MoneyFormat;
 
 namespace YDot.IAM.Application.Common.Abstractions.Persistence;
 
@@ -114,6 +115,12 @@ public interface IGlobalMasterReadService
     /// </summary>
     Task<IReadOnlyList<CurrencyLookupResponse>> LookupCurrenciesAsync(
         Guid? countryId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// How each platform currency is written - symbol, position, decimal places - for the money
+    /// format every screen applies. Retired rows included: old donations still carry them.
+    /// </summary>
+    Task<IReadOnlyList<CurrencyFormatResponse>> ListCurrencyFormatsAsync(CancellationToken cancellationToken);
 
     /// <summary>
     /// Active time zones, narrowed to one country's when it has any mapped.

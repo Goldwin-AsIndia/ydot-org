@@ -87,6 +87,15 @@ public class CampaignDbContext(
 
     public DbSet<Medium> Mediums => Set<Medium>();
 
+    // ---- WhatsApp recipient groups ------------------------------------------------------------------------
+    //
+    // The one piece of WhatsApp data CAM owns: a person's named pick of numbers. Checks, sends and
+    // messages stay in the integration worker's int_* tables and are read with raw SQL.
+
+    public DbSet<WhatsAppRecipientGroup> WhatsAppRecipientGroups => Set<WhatsAppRecipientGroup>();
+
+    public DbSet<WhatsAppRecipientGroupMember> WhatsAppRecipientGroupMembers => Set<WhatsAppRecipientGroupMember>();
+
     // ---- Audit ---------------------------------------------------------------------------------------------
 
     public DbSet<CampaignAuditEvent> AuditEvents => Set<CampaignAuditEvent>();
