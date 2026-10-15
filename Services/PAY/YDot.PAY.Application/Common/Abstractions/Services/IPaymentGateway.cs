@@ -190,7 +190,14 @@ public sealed record GatewayVerificationResult(
     string? MaskedInstrument,
     DateTimeOffset? CapturedAtUtc,
     string? ResultCode,
-    string? Message);
+    string? Message,
+
+    /// <summary>
+    /// The provider's id for the payment the answer is about, when it names one. An attempt is
+    /// often known by its order or link rather than by a payment, so this is what a failure the
+    /// verification discovers is recorded against.
+    /// </summary>
+    string? PaymentReference = null);
 
 /// <summary>The outcome of a refund submission.</summary>
 public sealed record GatewayRefundResult(

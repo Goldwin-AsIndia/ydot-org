@@ -370,9 +370,21 @@ export class CampaignWizardComponent {
     return Number.isFinite(parsed) ? parsed : 0;
   });
 
+  /**
+   * The target is below the campaign amount - the figure each gift is - so the very first gift
+   * would overshoot it. Usually the two amounts typed into each other's boxes. The server
+   * refuses it too; saying so here keeps the person on the step where they typed it.
+   */
+  protected readonly targetBelowCampaignAmount = computed(
+    () =>
+      this.campaignAmountValid() &&
+      this.targetAmountValue() > 0 &&
+      this.targetAmountValue() < this.campaignAmountValue(),
+  );
+
   protected readonly targetAmountValid = computed(() => {
     const value = this.targetAmountValue();
-    return value > 0 && value <= this.campaignAmountMaximum;
+    return value > 0 && value <= this.campaignAmountMaximum && !this.targetBelowCampaignAmount();
   });
 
   protected readonly targetAmountLabel = computed(() => {
@@ -1503,11 +1515,8 @@ export class CampaignWizardComponent {
    * Writes the captured fields to the store and reports the outcome.
    *
    * `onSaved` CARRIES THE REFERENCE rather than the caller reading it from this method's return
-   * value. On the edit path the callback fires SYNCHRONOUSLY - an existing record already has
-   * its API id, so there is nothing to wait for - and a caller writing
-   * `const ref = this.persistToStore(..., () => use(ref))` would touch `ref` inside its own
-   * temporal dead zone and throw. Handing the reference to the callback removes the trap
-   * instead of documenting it.
+   * value, and on BOTH paths it fires once the server has answered - on an edit, after the
+   * refreshed record (and its new version) is back in the store.
    */
   private persistToStore(
     ref: string | null,
@@ -1577,10 +1586,12 @@ export class CampaignWizardComponent {
     if (ref) {
       // The stable reference (store key) is never rewritten from an in-progress edit
       // only the user-typed Campaign code at the moment of first save becomes the key.
-      this.store.update(ref, fields);
-
-      // An existing record already has its API id, so a caller may act on it at once.
-      onSaved?.({ saved: true, reference: ref });
+      //
+      // THE OUTCOME IS THE SERVER'S. This reported "saved" on the line after the call, so an
+      // edit the server refused - a campaign that is no longer a Draft - read as saved and was
+      // then undone by the refresh, and a Submit straight after an edit raced the save.
+      this.store.update(ref, fields, (outcome) =>
+        onSaved?.({ saved: outcome.saved, reference: ref, error: outcome.error }));
       return ref;
     }
     const code = this.campaignCode();

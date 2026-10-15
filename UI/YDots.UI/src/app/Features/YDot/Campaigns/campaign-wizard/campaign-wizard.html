@@ -385,6 +385,10 @@
                       </div>
                       @if (wasAttempted(0) && !targetAmount().trim()) {
                         <p class="field-error">Enter Target amount.</p>
+                      } @else if (targetBelowCampaignAmount()) {
+                        <p class="field-error">
+                          The target amount cannot be less than the campaign amount.
+                        </p>
                       } @else if (wasAttempted(0) && !targetAmountValid()) {
                         <p class="field-error">
                           Review Target amount. It has to be greater than zero.

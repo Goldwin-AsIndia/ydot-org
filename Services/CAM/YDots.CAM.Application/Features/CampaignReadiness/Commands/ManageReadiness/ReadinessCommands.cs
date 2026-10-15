@@ -7,6 +7,7 @@ using YDots.CAM.Application.Common.Models;
 using YDots.CAM.Application.Common.Results;
 using YDots.CAM.Application.Features.CampaignReadiness.DTOs;
 using YDots.CAM.Application.Features.CampaignReadiness.Mappings;
+using YDots.CAM.Application.Features.CampaignReadiness.Validators;
 using YDots.CAM.Domain.Entities;
 using YDots.CAM.Domain.Enums;
 
@@ -164,6 +165,19 @@ public sealed class ReadinessCommandHandler(
             {
                 return Result.Failure<OutcomeResponse>(ownerProblem);
             }
+        }
+
+        // A DUE DATE MOVED INTO THE PAST IS REFUSED, as on a new check. One left as it was is not:
+        // a check that fell overdue last week must still be editable without being re-dated first.
+        if (command.Request.DueDate != check.DueDate
+            && command.Request.DueDate is { } due
+            && due < clock.TodayUtc)
+        {
+            logger.LogWarning("Cannot update readiness check {CheckId} because the new due date {DueDate} is in the past.", check.Id, due);
+
+            return Result.Failure<OutcomeResponse>(Error.Validation(
+                CreateReadinessCheckRequestValidator.PastDueDateMessage,
+                [new ValidationError(nameof(command.Request.DueDate), CreateReadinessCheckRequestValidator.PastDueDateMessage)]));
         }
 
         command.Request.ApplyTo(check);

@@ -137,8 +137,11 @@ public sealed class AccessRequestCommandHandler(
             ScopeType = asked.Value.ScopeType,
             ScopeValue = asked.Value.ScopeValue,
             BusinessJustification = request.BusinessJustification.Trim(),
-            AccessStartsAtUtc = request.AccessStartsAtUtc ?? now,
-            AccessEndsAtUtc = request.AccessEndsAtUtc,
+
+            // UTC ON THE WAY IN. A date sent with an offset (+05:30) made Npgsql refuse the save
+            // with a 500, since the columns hold UTC only.
+            AccessStartsAtUtc = request.AccessStartsAtUtc?.ToUniversalTime() ?? now,
+            AccessEndsAtUtc = request.AccessEndsAtUtc?.ToUniversalTime(),
             Status = request.SubmitImmediately ? AccessRequestStatus.Submitted : AccessRequestStatus.Draft,
             SubmittedAtUtc = request.SubmitImmediately ? now : null,
             IsSensitive = isSensitive,
@@ -234,8 +237,9 @@ public sealed class AccessRequestCommandHandler(
             return Result.Failure<OutcomeResponse>(asked.Error!);
         }
 
-        var accessEndsAtUtc = edit.RemoveAccessEndDate ? null : edit.AccessEndsAtUtc ?? accessRequest.AccessEndsAtUtc;
-        var accessStartsAtUtc = edit.AccessStartsAtUtc ?? accessRequest.AccessStartsAtUtc;
+        // UTC, as on a new request - an offset date would otherwise fail the save with a 500.
+        var accessEndsAtUtc = edit.RemoveAccessEndDate ? null : edit.AccessEndsAtUtc?.ToUniversalTime() ?? accessRequest.AccessEndsAtUtc;
+        var accessStartsAtUtc = edit.AccessStartsAtUtc?.ToUniversalTime() ?? accessRequest.AccessStartsAtUtc;
 
         if (accessRequest.RequestType == AccessRequestType.TemporaryElevation && !accessEndsAtUtc.HasValue)
         {

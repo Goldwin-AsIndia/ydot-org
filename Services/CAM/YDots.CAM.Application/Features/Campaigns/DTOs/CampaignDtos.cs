@@ -77,7 +77,14 @@ public sealed record CreateCampaignRequest(
 
     // ---- Step 4: review and launch -------------------------------------------------------
     Guid CurrencyId,
-    CampaignStatus Status = CampaignStatus.Draft);
+    CampaignStatus Status = CampaignStatus.Draft,
+
+    /// <summary>
+    /// The purpose with its formatting, as the editor produced it. Optional: <c>Purpose</c> above
+    /// is the plain text, and is what is required. Without this the purpose came back from every
+    /// save as one unformatted paragraph, whatever the editor had shown.
+    /// </summary>
+    string? PurposeHtml = null);
 
 /// <summary>
 /// Editing a campaign. Carries the same mandatory set as the create request.
@@ -122,7 +129,10 @@ public sealed record UpdateCampaignRequest(
     TimeOnly? ReminderTime,
     string PublicDescription,
     string TermsAndNotice,
-    Guid CurrencyId);
+    Guid CurrencyId,
+
+    /// <summary>The purpose with its formatting. See <see cref="CreateCampaignRequest.PurposeHtml"/>.</summary>
+    string? PurposeHtml = null);
 
 /// <summary>
 /// The body of a lifecycle transition: submit, approve, activate, pause, resume, request
@@ -211,7 +221,29 @@ public sealed record CampaignListItemResponse(
     int OutstandingCheckCount,
 
     DateTimeOffset? UpdatedAtUtc,
-    long Version);
+    long Version,
+
+    /// <summary>
+    /// Confirmed income for the campaign, refunds already deducted - the same figure the campaign
+    /// detail measures against its target. Read from the donations, once for the whole page.
+    /// </summary>
+    decimal RaisedAmount = 0m,
+
+    /// <summary>
+    /// <see cref="RaisedAmount"/> as a whole percentage of the target: what the register's progress
+    /// bar shows. Zero when the campaign has no target; it can pass 100 when a target is beaten.
+    ///
+    /// THE BAR USED TO SHOW <see cref="ElapsedPercent"/>, how far through its own dates the campaign
+    /// was, so a campaign that had raised nothing showed a full bar on its end date and one that had
+    /// beaten its target showed an empty one before it started.
+    /// </summary>
+    int RaisedPercent = 0,
+
+    /// <summary>
+    /// What this caller may do to the row next - the same list the detail response carries, so
+    /// the register's row actions follow the server rather than a status list in the browser.
+    /// </summary>
+    IReadOnlyList<string>? PermittedActions = null);
 
 /// <summary>
 /// The full campaign record behind the detail screen.
@@ -286,7 +318,14 @@ public sealed record CampaignDetailResponse(
     /// absent for the person who submitted it. Render buttons from this list and they can never
     /// disagree with what the API will allow.
     /// </summary>
-    IReadOnlyList<string> PermittedActions);
+    IReadOnlyList<string> PermittedActions,
+
+    /// <summary>
+    /// The purpose as the editor wrote it - bold, italics, underline, alignment, font and size -
+    /// or null for a campaign whose purpose was only ever saved as plain text.
+    /// <c>Purpose</c> stays the plain-text form every list, export and search reads.
+    /// </summary>
+    string? PurposeHtml = null);
 
 /// <summary>One lifecycle transition, as the detail screen and the history tab show it.</summary>
 public sealed record CampaignLifecycleActionResponse(

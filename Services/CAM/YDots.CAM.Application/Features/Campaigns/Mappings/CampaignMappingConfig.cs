@@ -38,6 +38,7 @@ public static class CampaignMappingConfig
             Code = request.Code.Trim().ToUpperInvariant(),
             Name = request.Name.Trim(),
             Purpose = request.Purpose.Trim(),
+            PurposeHtml = Clean(request.PurposeHtml),
             FundOrProgramme = request.FundOrProgramme.Trim(),
             StartDate = request.StartDate,
             EndDate = request.EndDate,
@@ -91,14 +92,14 @@ public static class CampaignMappingConfig
         ArgumentNullException.ThrowIfNull(request);
         ArgumentNullException.ThrowIfNull(campaign);
 
-        // A live campaign keeps the name and start date it went live with.
-        if (!campaign.IsIdentityLocked)
-        {
-            campaign.Name = request.Name.Trim();
-            campaign.StartDate = request.StartDate;
-        }
-
+        // Only a Draft reaches here (see Campaign.IsEditable), so every field is open to the edit.
+        campaign.Name = request.Name.Trim();
+        campaign.StartDate = request.StartDate;
         campaign.Purpose = request.Purpose.Trim();
+
+        // THE MARKUP FOLLOWS THE TEXT. An edit that sends no markup clears it rather than keeping
+        // the old one, which would otherwise go on showing formatting for words since replaced.
+        campaign.PurposeHtml = Clean(request.PurposeHtml);
         campaign.FundOrProgramme = request.FundOrProgramme.Trim();
         campaign.EndDate = request.EndDate;
         // TargetAmount and BudgetAmount are LEFT ALONE. They are not on the update contract while
@@ -194,6 +195,8 @@ public static class CampaignMappingConfig
     /// Display names for those owners, resolved once for the whole page. An id absent from the
     /// dictionary simply renders without a name.
     /// </param>
+    /// <param name="raisedAmount">Confirmed income, refunds deducted, read once for the page.</param>
+    /// <param name="permittedActions">This caller's actions on the row, as the detail decides them.</param>
     public static CampaignListItemResponse ToListItemResponse(
         this Campaign campaign,
         DateOnly today,
@@ -201,11 +204,14 @@ public static class CampaignMappingConfig
         IReadOnlyDictionary<Guid, PersonSummary> people,
         string? currencyCode,
         int trackingAssetCount,
-        int outstandingCheckCount)
+        int outstandingCheckCount,
+        decimal raisedAmount,
+        IReadOnlyList<string> permittedActions)
     {
         ArgumentNullException.ThrowIfNull(campaign);
         ArgumentNullException.ThrowIfNull(ownerIds);
         ArgumentNullException.ThrowIfNull(people);
+        ArgumentNullException.ThrowIfNull(permittedActions);
 
         return new CampaignListItemResponse(
             campaign.Id,
@@ -229,8 +235,22 @@ public static class CampaignMappingConfig
             trackingAssetCount,
             outstandingCheckCount,
             campaign.UpdatedAtUtc,
-            campaign.Version);
+            campaign.Version,
+            raisedAmount,
+            RaisedPercent(raisedAmount, campaign.TargetAmount),
+            permittedActions);
     }
+
+    /// <summary>
+    /// Money raised as a whole percentage of the target, for the register's progress bar.
+    ///
+    /// Zero without a target, rather than a division by zero; not capped at 100, because a
+    /// campaign that has beaten its target should say by how much.
+    /// </summary>
+    public static int RaisedPercent(decimal raisedAmount, decimal targetAmount) =>
+        targetAmount <= 0m || raisedAmount <= 0m
+            ? 0
+            : (int)Math.Round(raisedAmount * 100m / targetAmount, MidpointRounding.AwayFromZero);
 
     /// <summary>
     /// The detail screen.
@@ -310,7 +330,8 @@ public static class CampaignMappingConfig
             campaign.UpdatedByUserId,
             campaign.Version,
             pendingCloseRequest?.ToResponse(),
-            permittedActions);
+            permittedActions,
+            campaign.PurposeHtml);
     }
 
     public static CampaignLifecycleActionResponse ToResponse(this CampaignLifecycleAction action)
@@ -410,12 +431,17 @@ public static class CampaignMappingConfig
     /// failing at the last step. It does NOT remove Activate for a Scheduled campaign: a
     /// scheduled campaign goes live on its start date whatever the checklist says, so hiding the
     /// button would only stop somebody bringing forward a launch that is going to happen anyway.
+    ///
+    /// <paramref name="today"/> REMOVES ACTIVATE ONCE THE END DATE HAS PASSED. The activate
+    /// endpoint has always refused such a campaign, but the button was still offered on every
+    /// Scheduled row, ended or not - a button that existed only to answer 409.
     /// </summary>
     public static IReadOnlyList<string> PermittedActionsFor(
         Campaign campaign,
         Func<string, bool> hasPermission,
         bool hasOutstandingChecks,
-        bool hasPendingCloseRequest)
+        bool hasPendingCloseRequest,
+        DateOnly today)
     {
         ArgumentNullException.ThrowIfNull(campaign);
         ArgumentNullException.ThrowIfNull(hasPermission);
@@ -437,7 +463,7 @@ public static class CampaignMappingConfig
             actions.Add("Export");
         }
 
-        // Edit is offered while Draft, Submitted, Approved, Scheduled and Active (see Campaign.IsEditable).
+        // Edit is offered while the campaign is a Draft, and only then (see Campaign.IsEditable).
         if (campaign.IsEditable && hasPermission(PermissionCodes.CampaignsEdit))
         {
             actions.Add("Edit");
@@ -478,6 +504,7 @@ public static class CampaignMappingConfig
         // campaign has no such trigger, and there the checklist is the gate.
         if ((campaign.Status == CampaignStatus.Scheduled
              || (campaign.Status == CampaignStatus.Approved && !hasOutstandingChecks))
+            && campaign.EndDate >= today
             && hasPermission(PermissionCodes.CampaignsActivate))
         {
             actions.Add("Activate");

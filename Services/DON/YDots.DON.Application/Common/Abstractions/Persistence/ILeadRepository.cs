@@ -27,6 +27,17 @@ public interface ILeadRepository
 
     Task<int> GetMaxReferenceSequenceAsync(int year, CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// The organisation's OPEN leads - not converted, closed or suppressed - whose e-mail address
+    /// or mobile number is one of those given, with their campaign. What a bulk upload checks each
+    /// row against so that loading the same file twice does not create every lead twice.
+    /// </summary>
+    Task<IReadOnlyList<Lead>> FindOpenLeadsByContactAsync(
+        Guid organisationId,
+        IReadOnlyCollection<string> normalisedEmails,
+        IReadOnlyCollection<string> mobileNumbers,
+        CancellationToken cancellationToken = default);
+
     /// <summary>Safe duplicate candidates for the lead capture screen: same e-mail, phone or name.</summary>
     Task<IReadOnlyList<Lead>> FindDuplicateCandidatesAsync(
         Guid organisationId,

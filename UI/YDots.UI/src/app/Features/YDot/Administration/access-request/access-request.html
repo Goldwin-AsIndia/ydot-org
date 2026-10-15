@@ -486,12 +486,12 @@
                 <div class="ar-field">
                   <label class="ar-field-lbl">{{ f.label }} @if (f.key === 'effectiveTo' && needsEndDate()) { <em class="ar-req">*</em> }</label>
                   <div class="ar-dp" [class.is-open]="dpField() === f.key" (click)="$event.stopPropagation()">
-                    <button #dpTrigger type="button" class="ar-dd-trigger ar-dd-trigger--field" [class.is-invalid]="f.key === 'effectiveTo' && !!newReqError('effectiveTo')" [attr.style]="f.key === 'effectiveTo' && newReqError('effectiveTo') ? invalidStyle : null" (click)="openDatePicker(f.key); placeDatePicker(dpTrigger)" [attr.aria-expanded]="dpField() === f.key">
+                    <button #dpTrigger type="button" class="ar-dd-trigger ar-dd-trigger--field" [class.is-invalid]="!!newReqError(f.key)" [attr.style]="newReqError(f.key) ? invalidStyle : null" (click)="openDatePicker(f.key); placeDatePicker(dpTrigger)" [attr.aria-expanded]="dpField() === f.key">
                       <i class="ri-calendar-line ar-dd-lead" aria-hidden="true"></i>
                       <span class="ar-dd-value" [class.is-placeholder]="!dateValue(f.key)">{{ displayDate(dateValue(f.key)) || (f.key === 'effectiveFrom' ? 'Today' : 'No end date') }}</span>
                     </button>
                   </div>
-                  @if (f.key === 'effectiveTo' && newReqError('effectiveTo')) { <div class="ar-field-error" role="alert">{{ newReqError('effectiveTo') }}</div> }
+                  @if (newReqError(f.key)) { <div class="ar-field-error" role="alert">{{ newReqError(f.key) }}</div> }
                 </div>
               }
             </div>
@@ -543,8 +543,8 @@
         <div class="ar-dp-grid">
           @for (w of weekdays; track w) { <span class="ar-dp-wd">{{ w }}</span> }
           @for (c of dpCells(); track c.iso) {
-            <button type="button" class="ar-dp-day" [class.is-out]="c.outside" [class.is-today]="c.today" [class.is-sel]="c.selected"
-                    [attr.aria-label]="displayDate(c.iso)" [attr.aria-pressed]="c.selected" (click)="dpPick(c.iso)">{{ c.day }}</button>
+            <button type="button" class="ar-dp-day" [class.is-out]="c.outside || c.disabled" [class.is-today]="c.today" [class.is-sel]="c.selected"
+                    [disabled]="c.disabled" [attr.aria-label]="displayDate(c.iso)" [attr.aria-pressed]="c.selected" (click)="dpPick(c.iso)">{{ c.day }}</button>
           }
         </div>
         <div class="ar-dp-foot">

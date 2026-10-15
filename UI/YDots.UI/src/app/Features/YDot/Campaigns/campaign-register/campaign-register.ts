@@ -587,17 +587,19 @@ export class CampaignRegisterComponent {
   }
 
   /**
-   * Edit is offered for a Draft, Submitted, Scheduled or Active campaign, to a caller who holds the edit permission.
+   * Edit is offered for a Draft campaign only, to a caller who holds the edit permission.
    *
-   * BOTH HALVES, WHICH IT DID NOT HAVE. The status half was here and the permission half was not,
-   * so an Approver - a role defined by not editing what it approves - was shown Edit on every
-   * draft on the register.
+   * THE ROW'S OWN permittedActions DECIDE IT, the list the server builds for this caller and this
+   * campaign. Edit was drawn here from a status list of the browser's - Approved, Scheduled and
+   * Active included - so a campaign already approved, or live, could be reopened and changed.
+   * The status test remains only for a row the server has not described yet.
    */
   protected canEdit(record: CampaignRecord): boolean {
-    return (
-      this.permissions().edit &&
-      ['Draft', 'Approved', 'Scheduled', 'Active'].includes(record.status)
-    );
+    const actions = record.permittedActions;
+
+    return actions?.length
+      ? actions.includes('Edit')
+      : this.permissions().edit && record.status === 'Draft';
   }
   protected openEdit(record: CampaignRecord): void {
     this.closeRowMenu();

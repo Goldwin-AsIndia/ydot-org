@@ -25,7 +25,14 @@ public class Campaign : TenantEntity, ICodedEntity
 
     public string Name { get; set; } = string.Empty;
 
+    /// <summary>The purpose as plain text - what lists, exports and search read.</summary>
     public string Purpose { get; set; } = string.Empty;
+
+    /// <summary>
+    /// The same purpose with the editor's formatting, for the screens that show it formatted.
+    /// Null on a campaign whose purpose was saved before the markup was kept.
+    /// </summary>
+    public string? PurposeHtml { get; set; }
 
     public string FundOrProgramme { get; set; } = string.Empty;
 
@@ -104,13 +111,12 @@ public class Campaign : TenantEntity, ICodedEntity
     public bool IsDraft => Status == CampaignStatus.Draft;
 
     /// <summary>
-    /// Whether the campaign's details may be edited: while Draft, Submitted, Approved, Scheduled
-    /// or Active. Once it is Active the name and start date are fixed (see <see cref="IsIdentityLocked"/>).
+    /// Whether the campaign's details may be edited: while it is a Draft, and at no other time.
+    ///
+    /// DRAFT ONLY, the Organisation's rule since 14 October 2026. Submitted, Approved, Scheduled
+    /// and Active were editable for a week, so a campaign could change underneath the person
+    /// approving it, and a scheduled or live one after it had been signed off. Anything past Draft
+    /// goes back to Draft (Reject) to be changed, and is approved again.
     /// </summary>
-    public bool IsEditable =>
-        Status is CampaignStatus.Draft or CampaignStatus.Submitted or CampaignStatus.Approved
-            or CampaignStatus.Scheduled or CampaignStatus.Active;
-
-    /// <summary>A live campaign keeps the name and start date it went live with.</summary>
-    public bool IsIdentityLocked => Status == CampaignStatus.Active;
+    public bool IsEditable => Status == CampaignStatus.Draft;
 }

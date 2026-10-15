@@ -26,6 +26,18 @@ public interface ISecurityRepository
     Task<bool> IsSessionActiveAsync(
         Guid sessionId, DateTimeOffset asOf, CancellationToken cancellationToken);
 
+    /// <summary>
+    /// Records that the session was used just now - at most once a minute, as one UPDATE of the
+    /// activity column alone, so the version other writers check is never moved by it.
+    ///
+    /// WHY IT MATTERS. The activity stamp moved only at sign-in and at each token refresh, an
+    /// hour apart in the shipped configuration, so somebody working all morning looked idle to
+    /// the server. The concurrent-session cap ends the LEAST RECENTLY ACTIVE session when an
+    /// eleventh sign-in arrives, and on that stamp it could pick the person who was working -
+    /// who was then signed out mid-task. The server's idle countdown read the same stamp.
+    /// </summary>
+    Task TouchSessionAsync(Guid sessionId, DateTimeOffset asOf, CancellationToken cancellationToken);
+
     Task<UserSession?> GetSessionByHashAsync(string sessionTokenHash, CancellationToken cancellationToken);
 
     Task<IReadOnlyList<UserSession>> GetActiveSessionsAsync(Guid userId, CancellationToken cancellationToken);

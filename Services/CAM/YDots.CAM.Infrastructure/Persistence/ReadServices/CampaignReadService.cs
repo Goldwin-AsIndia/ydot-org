@@ -75,7 +75,13 @@ public sealed class CampaignReadService(
                 OutstandingCheckCount = campaign.ReadinessChecks.Count(check =>
                     check.RequiredForLaunch
                     && (check.Status != ReadinessCheckStatus.Passed
-                        || check.Blockers.Any(blocker => !blocker.IsResolved)))
+                        || check.Blockers.Any(blocker => !blocker.IsResolved))),
+
+                // The detail's own test for a close awaiting a decision, so the row offers the
+                // same Approve close / Reject close the detail does.
+                HasPendingClose = campaign.LifecycleActions.Any(action =>
+                    action.ActionType == CampaignLifecycleActionType.RequestClose
+                    && action.ActionStatus == CampaignLifecycleActionStatus.Pending)
             })
             .ToListAsync(cancellationToken);
 
@@ -90,6 +96,13 @@ public sealed class CampaignReadService(
         var currencyCodes = await financial.GetCurrencyCodesAsync(
             [.. rows.Select(row => row.Campaign.CurrencyId).Distinct()], cancellationToken);
 
+        // What each campaign on the page has raised, in one query. Never throws: a register that
+        // cannot reach the payment tables shows zero rather than failing to open.
+        var income = tenantContext.HasTenant && rows.Count > 0
+            ? await financial.GetCampaignIncomeAsync(
+                tenantContext.RequireTenantId(), [.. rows.Select(row => row.Campaign.Id)], cancellationToken)
+            : new Dictionary<Guid, CampaignIncome>();
+
         var items = rows
             .Select(row => row.Campaign.ToListItemResponse(
                 today,
@@ -97,7 +110,14 @@ public sealed class CampaignReadService(
                 resolvedPeople,
                 currencyCodes.GetValueOrDefault(row.Campaign.CurrencyId),
                 row.TrackingAssetCount,
-                row.OutstandingCheckCount))
+                row.OutstandingCheckCount,
+                income.TryGetValue(row.Campaign.Id, out var raised) ? raised.ConfirmedAmount : 0m,
+                CampaignMappingConfig.PermittedActionsFor(
+                    row.Campaign,
+                    currentUser.HasPermission,
+                    row.OutstandingCheckCount > 0,
+                    row.HasPendingClose,
+                    today)))
             .ToList();
 
         return new PagedResponse<CampaignListItemResponse>(items, total, filter.Page, filter.PageSize);
@@ -164,7 +184,8 @@ public sealed class CampaignReadService(
                 campaign,
                 currentUser.HasPermission,
                 outstandingCheckCount > 0,
-                pendingClose is not null),
+                pendingClose is not null,
+                clock.TodayUtc),
             resolvedPeople,
             place,
             currencyCodes.GetValueOrDefault(campaign.CurrencyId),

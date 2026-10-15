@@ -35,6 +35,8 @@ public sealed class CampaignConfiguration : IEntityTypeConfiguration<Campaign>
         builder.Property(campaign => campaign.Name).HasMaxLength(250).IsRequired();
         builder.Property(campaign => campaign.Purpose)
             .HasMaxLength(CampaignFieldLimits.Purpose).IsRequired();
+        builder.Property(campaign => campaign.PurposeHtml)
+            .HasMaxLength(CampaignFieldLimits.PurposeHtml);
         builder.Property(campaign => campaign.FundOrProgramme).HasMaxLength(250).IsRequired();
         builder.Property(campaign => campaign.ZipCode).HasMaxLength(20);
         // THE TWO RICH-TEXT COLUMNS HOLD MARKUP, so they are sized for the editor's HTML

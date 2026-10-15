@@ -659,6 +659,18 @@ export class AccessRequestComponent {
   readonly dpTitle = computed(() =>
     this.dpView().toLocaleDateString('en-IN', { month: 'long', year: 'numeric' }));
 
+  /**
+   * The first day the open picker may choose: today for Effective from, and for Effective to the
+   * later of today and the chosen start. The server refuses a start before today and an end
+   * before the start; the picker no longer offers either.
+   */
+  readonly dpMin = computed(() => {
+    const today = this.toIso(new Date());
+    if (this.dpField() !== 'effectiveTo') return today;
+    const from = this.newRequestForm().effectiveFrom;
+    return from && from > today ? from : today;
+  });
+
   /** The visible month as 6 weeks of cells, Monday first. */
   readonly dpCells = computed(() => {
     const view = this.dpView();
@@ -669,6 +681,7 @@ export class AccessRequestComponent {
     const start = new Date(first);
     start.setDate(first.getDate() - offset);
     const todayIso = this.toIso(new Date());
+    const minIso = this.dpMin();
     return Array.from({ length: 42 }, (_, i) => {
       const d = new Date(start);
       d.setDate(start.getDate() + i);
@@ -679,6 +692,7 @@ export class AccessRequestComponent {
         outside: d.getMonth() !== view.getMonth(),
         today: iso === todayIso,
         selected: iso === selected,
+        disabled: iso < minIso,
       };
     });
   });
@@ -690,7 +704,7 @@ export class AccessRequestComponent {
 
   dpPick(iso: string): void {
     const field = this.dpField();
-    if (!field) return;
+    if (!field || iso < this.dpMin()) return;
     this.newRequestForm.set({ ...this.newRequestForm(), [field]: iso });
     this.dpField.set(null);
   }
@@ -815,7 +829,7 @@ export class AccessRequestComponent {
 
   private static readonly FIELD_LABELS: Record<string, string> = {
     requestType: 'Request type', userId: 'User', roleId: 'Requested role', permissionCode: 'Requested permission',
-    scopeType: 'Scope type', scopeValue: 'Scope value', effectiveTo: 'Effective to',
+    scopeType: 'Scope type', scopeValue: 'Scope value', effectiveFrom: 'Effective from', effectiveTo: 'Effective to',
     businessJustification: 'Business justification',
   };
 
@@ -830,6 +844,8 @@ export class AccessRequestComponent {
       permissionCode: this.usesPermission() && !f.permissionCode ? 'Select the permission being requested.' : null,
       scopeType: this.usesScope() && !f.scopeType ? 'Select a scope type.' : null,
       scopeValue: this.usesScope() && !f.scopeValue.trim() ? 'Enter the scope value.' : null,
+      effectiveFrom: f.effectiveFrom && f.effectiveFrom < this.toIso(new Date())
+        ? 'The access cannot start before today.' : null,
       effectiveTo: this.needsEndDate() && !f.effectiveTo ? 'Temporary access needs an end date.'
         : f.effectiveFrom && f.effectiveTo && f.effectiveTo < f.effectiveFrom ? 'Effective to cannot be before effective from.'
         : f.effectiveTo && f.effectiveTo < this.toIso(new Date()) ? 'The end date must be in the future.'

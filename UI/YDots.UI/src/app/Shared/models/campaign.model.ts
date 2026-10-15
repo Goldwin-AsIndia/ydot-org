@@ -100,6 +100,8 @@ export interface CampaignRecord {
   readonly code: string;
   readonly name: string;
   readonly purpose: string;
+  /** The purpose with the editor's formatting, as the server keeps it beside the plain text. */
+  readonly purposeHtml?: string;
   readonly status: CampaignStatus;
   readonly ownerReference: string;
   /** Every accountable owner when a campaign has more than one; ownerReference always holds the first. */

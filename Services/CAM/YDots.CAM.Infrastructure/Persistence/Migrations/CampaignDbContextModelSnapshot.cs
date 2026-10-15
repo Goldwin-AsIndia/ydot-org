@@ -419,6 +419,11 @@ namespace YDots.CAM.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(1000)")
                         .HasColumnName("purpose");
 
+                    b.Property<string>("PurposeHtml")
+                        .HasMaxLength(8000)
+                        .HasColumnType("character varying(8000)")
+                        .HasColumnName("purpose_html");
+
                     b.Property<TimeOnly>("ReminderTime")
                         .HasColumnType("time without time zone")
                         .HasColumnName("reminder_time");

@@ -140,7 +140,7 @@ public sealed class Donor360QueryHandler(
                 ? null
                 : new RelationshipOwnerResponse(donor.RelationshipOwnerUserId.Value, donor.RelationshipOwnerName),
             BuildConsentStatus(consents),
-            [.. consents.Select(BuildPreference)],
+            BuildPreferences(donor, consents),
             totals,
             BuildCampaignHistory(campaignHistory, campaignGiving),
             [.. interactions.Select(BuildConversation)],
@@ -248,7 +248,63 @@ public sealed class Donor360QueryHandler(
             consents.OrderByDescending(consent => consent.EffectiveAtUtc).FirstOrDefault()?.NoticeVersion);
     }
 
-    private static CommunicationPreferenceResponse BuildPreference(Consent consent) =>
+    /// <summary>
+    /// One row per consent channel the organisation records, in the catalogue's order: the record
+    /// in force where there is one, "Not provided" where there is not - and on each, what this
+    /// caller may do to it from Donor 360.
+    ///
+    /// EVERY CHANNEL, NOT ONLY THE RECORDED ONES, because a channel nobody has asked about is the
+    /// one consent is most often granted for, and a row that is not listed cannot be acted on.
+    /// </summary>
+    private IReadOnlyList<CommunicationPreferenceResponse> BuildPreferences(Donor donor, IReadOnlyList<Consent> consents)
+    {
+        // The same donor test the grant handler applies, so Grant is never offered only to fail.
+        var canGrant = currentUser.HasPermission(PermissionCodes.ConsentCentreGrant)
+                       && donor.Status is not (DonorStatus.Archived or DonorStatus.Merged);
+        var canWithdraw = currentUser.HasPermission(PermissionCodes.ConsentCentreWithdraw);
+
+        return
+        [
+            .. Enum.GetValues<ConsentChannel>().Select(channel =>
+            {
+                var consent = consents.FirstOrDefault(item => item.Channel == channel);
+                var actions = new List<string>();
+
+                // GRANT where consent is not already given and in force; a grant supersedes the
+                // current row, so it also answers a withdrawn or pending one.
+                if (canGrant && (consent is null
+                                 || consent.ConsentState != ConsentState.Granted
+                                 || consent.Status != ConsentStatus.Active))
+                {
+                    actions.Add("Grant");
+                }
+
+                // WITHDRAW only an active record that is not already a refusal - the withdraw
+                // handler refuses anything that is not Active.
+                if (canWithdraw && consent is not null
+                    && consent.Status == ConsentStatus.Active
+                    && consent.ConsentState != ConsentState.Withdrawn)
+                {
+                    actions.Add("Withdraw");
+                }
+
+                return consent is null
+                    ? new CommunicationPreferenceResponse(
+                        channel.ToString(),
+                        nameof(ConsentState.NotProvided),
+                        "None",
+                        null,
+                        null,
+                        false,
+                        FollowUpQueueCatalogue.ChannelLabel(channel.ToString()),
+                        StateLabel(nameof(ConsentState.NotProvided)),
+                        PermittedActions: actions)
+                    : BuildPreference(consent, actions);
+            })
+        ];
+    }
+
+    private static CommunicationPreferenceResponse BuildPreference(Consent consent, IReadOnlyList<string> permittedActions) =>
         new(
             consent.Channel.ToString(),
             consent.ConsentState.ToString(),
@@ -257,7 +313,13 @@ public sealed class Donor360QueryHandler(
             consent.ExpiryAtUtc,
             consent.PublicRecognitionPreference,
             FollowUpQueueCatalogue.ChannelLabel(consent.Channel.ToString()),
-            ConsentCatalogue.StateOptions.FirstOrDefault(option => option.Value == consent.ConsentState.ToString())?.Label);
+            StateLabel(consent.ConsentState.ToString()),
+            consent.Id,
+            consent.Version,
+            permittedActions);
+
+    private static string? StateLabel(string state) =>
+        ConsentCatalogue.StateOptions.FirstOrDefault(option => option.Value == state)?.Label;
 
     /// <summary>
     /// "Donation totals by stage", in the order money moves.

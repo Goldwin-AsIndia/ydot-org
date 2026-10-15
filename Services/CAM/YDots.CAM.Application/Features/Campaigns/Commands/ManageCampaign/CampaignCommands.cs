@@ -152,9 +152,9 @@ public sealed class CampaignCommandHandler(
             return Result.Failure<OutcomeResponse>(Error.Concurrency());
         }
 
-        // A DRAFT, SUBMITTED, APPROVED, SCHEDULED OR ACTIVE CAMPAIGN MAY BE EDITED, so details can
-        // be corrected without closing it. Paused / Closing / Closed / Cancelled stay as they are.
-        // An Active campaign keeps its name and start date (see ApplyTo).
+        // ONLY A DRAFT MAY BE EDITED. Past Draft somebody has been asked to approve the campaign as
+        // it stands, so changing it would mean approving one thing and running another. A campaign
+        // that needs changing goes back to Draft first (Reject), and through approval again.
         if (!campaign.IsEditable)
         {
             logger.LogWarning(
@@ -162,7 +162,7 @@ public sealed class CampaignCommandHandler(
                 campaign.Id, campaign.Status);
 
             return Result.Failure<OutcomeResponse>(Error.InvalidTransition(
-                $"Only a Draft, Submitted, Scheduled or Active campaign can be edited. This one is {campaign.Status}."));
+                $"Only a Draft campaign can be edited. This one is {campaign.Status}."));
         }
 
         request.ApplyTo(campaign);
@@ -278,5 +278,5 @@ public sealed class CampaignCommandHandler(
     private IReadOnlyList<string> PermittedActions(
         Campaign campaign, bool hasOutstandingChecks, bool hasPendingClose) =>
         CampaignMappingConfig.PermittedActionsFor(
-            campaign, currentUser.HasPermission, hasOutstandingChecks, hasPendingClose);
+            campaign, currentUser.HasPermission, hasOutstandingChecks, hasPendingClose, clock.TodayUtc);
 }

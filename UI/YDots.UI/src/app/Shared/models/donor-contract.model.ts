@@ -725,6 +725,12 @@ export interface CommunicationPreference {
   /** The channel and state as every Donors screen words them ("Call", "Not provided"). */
   channelLabel?: string | null;
   consentStateLabel?: string | null;
+  /** The consent record in force for the channel; null when nothing has been recorded. */
+  consentId?: string | null;
+  /** That record's version, which a withdrawal sends back. */
+  version?: number | null;
+  /** "Grant" and/or "Withdraw" - what this caller may do to the channel from Donor 360. */
+  permittedActions?: string[] | null;
 }
 
 /**

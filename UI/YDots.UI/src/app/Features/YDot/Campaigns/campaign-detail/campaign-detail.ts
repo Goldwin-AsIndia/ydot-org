@@ -144,9 +144,12 @@ interface DayTab extends DetailTab {
   readonly count: number;
 }
 
-/** BUG-016: the statuses a campaign may be edited in - matches the Campaign Register's rule. */
+/**
+ * BUG-016: the statuses a campaign may be edited in - matches the server's rule and the Campaign
+ * Register's. Draft only: past Draft a campaign has been put to an approver as it stands.
+ */
 const CampaignDetailEditRule = {
-  statuses: ['Draft', 'Approved', 'Scheduled', 'Active'] as readonly string[],
+  statuses: ['Draft'] as readonly string[],
   editable(status: string | null | undefined): boolean {
     return !!status && this.statuses.includes(status);
   },
@@ -414,10 +417,10 @@ export class CampaignDetailComponent {
     }
     const status = this.status();
     if (status === 'Submitted') {
-      return 'A submitted campaign is with its approver and cannot be edited until it is approved or sent back.';
+      return 'A submitted campaign is with its approver and cannot be edited until it is sent back to Draft.';
     }
     return !CampaignDetailEditRule.editable(status)
-      ? `Only a Draft, Approved, Scheduled or Active campaign can be edited. This one is ${status}.`
+      ? `Only a Draft campaign can be edited. This one is ${status}.`
       : 'You do not have permission to edit this campaign.';
   });
   protected openEdit(): void {

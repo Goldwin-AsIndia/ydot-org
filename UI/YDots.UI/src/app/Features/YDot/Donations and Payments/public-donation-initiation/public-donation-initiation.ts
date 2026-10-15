@@ -176,7 +176,7 @@ export class PublicDonationInitiationComponent {
   /**
    * The campaigns a donation may be started against: the appeals the organisation is taking
    * gifts for now, from the public endpoint, for EVERY caller. The server applies the rule -
-   * Approved, Scheduled or Active, and inside the campaign's dates - so nothing is filtered here.
+   * Active, and inside the campaign's dates - so nothing is filtered here.
    *
    * A scanned code's campaign is added when the list does not carry it; see loadTrackingContext.
    */

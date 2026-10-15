@@ -546,8 +546,7 @@
           <div class="dz-cols dz-cols--two">
             <section class="dz-col">
               <header class="dz-col-head">
-                <h2 class="dz-h">Overall consent</h2><button type="button" class="dz-btn dz-btn--xs"
-                  (click)="openConsentPreferences()">Manage</button>
+                <h2 class="dz-h">Overall consent</h2>
               </header>
               <dl class="dz-ledger">
                 <div>
@@ -580,7 +579,11 @@
                     <td class="dz-c-tag"><span class="dz-dot" [attr.data-ink]="badgeClass(ch.state)"><i aria-hidden="true"></i>{{
                         ch.stateLabel }}</span></td>
                     <td class="dz-muted" data-label="Recorded">{{ ch.since ? 'Since ' + ch.since : '—' }}</td>
-                    <td class="dz-end dz-muted">Public thanks: {{ ch.recognition ? 'yes' : 'no' }}</td>
+                    <td class="dz-muted">{{ ch.recorded ? 'Public thanks: ' + (ch.recognition ? 'yes' : 'no') : '—' }}</td>
+                    <!-- The update is made here: only the actions DON allows this caller on this channel. -->
+                    <td class="dz-end">@for (action of ch.actions; track action) {
+                      <button type="button" class="dz-btn dz-btn--xs" (click)="openConsentUpdate(ch, action)">{{ action }}</button>
+                    }</td>
                   </tr> }</tbody>
               </table>
               } @else { <p class="dz-blank">{{ donor().consentChannels }}</p> }
@@ -601,6 +604,11 @@
     </div>
   </div>
 </main>
+
+<!-- Grant / withdraw one channel's consent, with the purpose or reason DON records against it. -->
+@if (consentConfirm(); as cfg) {
+  <app-confirm-modal [config]="cfg" (confirm)="onConsentConfirm($event)" (cancel)="onConsentCancel()"></app-confirm-modal>
+}
 
 
 <dialog #actionDialog class="action-dialog"

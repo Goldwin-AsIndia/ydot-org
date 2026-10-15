@@ -67,6 +67,24 @@ public sealed class SecurityRepository(IamDbContext context) : ISecurityReposito
                            && session.ExpiresAtUtc > asOf,
                 cancellationToken);
 
+    /// <summary>How fresh the activity stamp is kept: one write a minute at most, per session.</summary>
+    private static readonly TimeSpan SessionTouchInterval = TimeSpan.FromMinutes(1);
+
+    public async Task TouchSessionAsync(
+        Guid sessionId, DateTimeOffset asOf, CancellationToken cancellationToken)
+    {
+        var staleBefore = asOf - SessionTouchInterval;
+
+        await context.UserSessions
+            .IgnoreQueryFilters()
+            .Where(session => session.Id == sessionId
+                              && session.RevokedAtUtc == null
+                              && session.LastActivityAtUtc < staleBefore)
+            .ExecuteUpdateAsync(
+                setters => setters.SetProperty(session => session.LastActivityAtUtc, asOf),
+                cancellationToken);
+    }
+
     public Task<UserSession?> GetSessionByHashAsync(
         string sessionTokenHash, CancellationToken cancellationToken) =>
         context.UserSessions

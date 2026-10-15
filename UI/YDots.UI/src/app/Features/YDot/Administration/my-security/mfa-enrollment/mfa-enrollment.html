@@ -20,7 +20,7 @@
 
       <div class="mfx-body">
         <div class="mfx-list" role="list">
-          @for (m of methods; track m.id) {
+          @for (m of methods(); track m.id) {
           <button class="mfx-row" type="button" role="listitem"
                   [disabled]="!!m.unavailableReason || starting()"
                   [class.is-off]="!!m.unavailableReason"
@@ -39,6 +39,10 @@
             <i class="ri-arrow-right-s-line mfx-row__chev"></i>
             }
           </button>
+          } @empty {
+            @if (methodsLoaded()) {
+            <span class="mfx-row__desc">Every verification method available is already set up on this account.</span>
+            }
           }
         </div>
       </div>

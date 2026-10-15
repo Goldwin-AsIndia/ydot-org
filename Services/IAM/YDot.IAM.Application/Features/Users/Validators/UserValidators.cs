@@ -552,12 +552,36 @@ public sealed class CreateAccessRequestRequestValidator : AbstractValidator<Crea
             .When(request => request.AccessEndsAtUtc.HasValue)
             .WithMessage("The end date must be in the future.");
 
+        RuleFor(request => request.AccessStartsAtUtc)
+            .Must(AccessRequestDateRules.IsNotBeforeToday)
+            .WithMessage(AccessRequestDateRules.StartInPastMessage);
+
         // The end has to come after the start, or the grant is over before it begins.
         RuleFor(request => request.AccessEndsAtUtc)
             .GreaterThan(request => request.AccessStartsAtUtc!.Value)
             .When(request => request.AccessEndsAtUtc.HasValue && request.AccessStartsAtUtc.HasValue)
             .WithMessage("The access has to end after it starts.");
     }
+}
+
+/// <summary>The date rules raising and editing an access request share.</summary>
+internal static class AccessRequestDateRules
+{
+    internal const string StartInPastMessage = "The access cannot start before today.";
+
+    /// <summary>
+    /// A start date no earlier than the requester's today.
+    ///
+    /// NOTHING REFUSED A START IN THE PAST, so a request could be raised as effective from last
+    /// month - a grant that claims to have been in force before anybody approved it.
+    ///
+    /// THE SCREEN SENDS THE START OF THE CHOSEN DAY IN THE REQUESTER'S OWN TIME ZONE, as UTC. The
+    /// server does not know that zone, so "today" is anything from 24 hours ago: the start of
+    /// today, wherever the requester is, always falls inside the last 24 hours, and the start of
+    /// yesterday never does.
+    /// </summary>
+    internal static bool IsNotBeforeToday(DateTimeOffset? startsAtUtc) =>
+        startsAtUtc is null || startsAtUtc.Value >= DateTimeOffset.UtcNow.AddHours(-24);
 }
 
 /// <summary>
@@ -581,6 +605,11 @@ public sealed class UpdateAccessRequestRequestValidator : AbstractValidator<Upda
             .GreaterThan(_ => DateTimeOffset.UtcNow)
             .When(request => request.AccessEndsAtUtc.HasValue)
             .WithMessage("The end date must be in the future.");
+
+        // A start the edit leaves out keeps its value; one it sends follows the raising rule.
+        RuleFor(request => request.AccessStartsAtUtc)
+            .Must(AccessRequestDateRules.IsNotBeforeToday)
+            .WithMessage(AccessRequestDateRules.StartInPastMessage);
     }
 }
 

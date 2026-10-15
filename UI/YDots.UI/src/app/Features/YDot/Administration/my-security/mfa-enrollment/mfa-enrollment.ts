@@ -74,44 +74,51 @@ export class MfaEnrollmentComponent implements OnInit, OnDestroy {
 
   private timerInterval: any;
 
-  readonly methods: MfaMethodDef[] = [
-    {
-      id: 'authenticator',
-      name: 'Authenticator App',
-      icon: 'ri-smartphone-line',
-      description: 'Scan a QR code with Google Authenticator, Authy or Microsoft Authenticator',
-      recommended: true,
-    },
-    {
-      id: 'email',
-      name: 'E-mail OTP',
-      icon: 'ri-mail-line',
-      description: 'Receive a one-time passcode at your registered e-mail address',
-    },
-    {
-      id: 'security-key',
-      name: 'Security Key',
-      icon: 'ri-key-2-line',
-      description: 'Use a FIDO2 hardware security key (YubiKey, Titan, etc.)',
-
-      // The server refuses this method today. Offering it and failing at the last step wastes
-      // somebody's time and teaches them the screen cannot be trusted.
-      unavailableReason: 'Not available yet.',
-    },
-    {
-      id: 'biometric',
-      name: 'Biometric',
-      icon: 'ri-fingerprint-line',
-      description: 'Fingerprint or face recognition',
-
-      // Not a factor in its own right: a fingerprint unlocks the DEVICE, and the device then
-      // produces one of the factors above. There is nothing here for a server to verify.
-      unavailableReason: 'Unlock your device to use your authenticator app instead.',
-    },
-  ];
+  /**
+   * The methods this account can still set up, AS THE SERVER LISTS THEM (`enrollableMfaMethods`
+   * on My Security): the ones the platform enrols, less any already in use.
+   *
+   * THIS WAS A FIXED LIST OF FOUR, so the authenticator app and e-mail were offered again to
+   * somebody already using both, and two that cannot be enrolled at all - security keys and
+   * biometrics - were drawn as greyed-out rows.
+   */
+  readonly methods = signal<MfaMethodDef[]>([]);
+  readonly methodsLoaded = signal(false);
 
   ngOnInit(): void {
     this.startOtpTimer();
+    this.loadMethods();
+  }
+
+  private loadMethods(): void {
+    this.api.getMySecurity().subscribe({
+      next: (security) => {
+        this.methods.set(
+          (security.enrollableMfaMethods ?? []).map((option) => ({
+            id: this.toScreenId(option.methodType),
+            name: option.name ?? '',
+            icon: option.icon ?? 'ri-shield-keyhole-line',
+            description: option.description ?? '',
+            recommended: option.isRecommended ?? false,
+          })),
+        );
+        this.methodsLoaded.set(true);
+      },
+      error: (error: Error) => {
+        this.methodsLoaded.set(true);
+        this.errorMessage.set(error.message);
+      },
+    });
+  }
+
+  /** The API's method type in the screen's own ids (see `toMethodType` for the way back). */
+  private toScreenId(methodType: MfaMethodType | undefined): string {
+    switch (methodType) {
+      case 'authenticatorApp': return 'authenticator';
+      case 'email': return 'email';
+      case 'securityKey': return 'security-key';
+      default: return String(methodType ?? '');
+    }
   }
 
   ngOnDestroy(): void {

@@ -1451,7 +1451,7 @@ public sealed class PaymentProcessingCommandHandler(
         var intentReference = intent.IntentReference;
         var gatewayName = account.GatewayName;
 
-        var captureToApply = await unitOfWork.ExecuteInTransactionAsync(async token =>
+        var eventToApply = await unitOfWork.ExecuteInTransactionAsync(async token =>
         {
             await donations.LockIntentAsync(intentId, token);
             unitOfWork.DiscardChanges();
@@ -1463,7 +1463,8 @@ public sealed class PaymentProcessingCommandHandler(
                 return (Guid?)null;
             }
 
-            Guid? pendingCapture = null;
+            Guid? pendingEvent = null;
+            var currentIntent = await donations.GetIntentAsync(intentId, token);
 
             // The gateway is authoritative. If it says captured and we have no donation, the
             // capture webhook was lost and this is where it gets put right.
@@ -1524,7 +1525,58 @@ public sealed class PaymentProcessingCommandHandler(
                 // AN EVENT THAT HAS ALREADY BEEN APPLIED IS NOT APPLIED AGAIN.
                 if (reconstructed.Status is not (PaymentEventStatus.Processed or PaymentEventStatus.Duplicate))
                 {
-                    pendingCapture = reconstructed.Id;
+                    pendingEvent = reconstructed.Id;
+                }
+            }
+            else if (verification.Status == PaymentAttemptStatus.Failed
+                     && currentIntent is not null
+                     && currentIntent.Status != DonationIntentStatus.Paid)
+            {
+                // THE GATEWAY SAYS DECLINED, AND NO WEBHOOK MAY EVER SAY SO. A declined card in
+                // the in-page checkout never reaches checkout-confirm, and wherever the provider
+                // cannot reach this service - every local and test deployment - no payment.failed
+                // webhook arrives either. Payments and Receipts lists the event queue, so a decline
+                // that only ever changed the attempt row was on no screen at all, and the donation
+                // sat "awaiting payment" with nothing for anybody to retry.
+                //
+                // IT IS RECORDED AS THE WEBHOOK WOULD HAVE RECORDED IT: a Failed event, applied by
+                // the same handler, which moves the attempt and the donation to Failed and puts the
+                // row on Payments and Receipts with Retry. Looked up before it is created, so
+                // polling the result page records the decline once.
+                var paymentReference = verification.PaymentReference ?? current.GatewayReference;
+                var eventReference = $"verify:{paymentReference}:failed";
+
+                var reconstructed = await paymentEvents.FindByGatewayEventIdAsync(
+                    gatewayName, eventReference, token);
+
+                if (reconstructed is null)
+                {
+                    reconstructed = new PaymentEvent
+                    {
+                        TenantId = current.TenantId,
+                        BusinessUnitId = current.BusinessUnitId,
+                        PaymentAttemptId = current.Id,
+                        DonationIntentId = intentId,
+                        EventType = PaymentEventType.Failed,
+                        Status = PaymentEventStatus.Pending,
+                        GatewayName = gatewayName,
+                        GatewayEventId = eventReference,
+                        GatewayReference = paymentReference,
+                        Amount = current.RequestedAmount.Copy(),
+                        OccurredAtUtc = verification.CapturedAtUtc ?? clock.UtcNow,
+                        ReceivedAtUtc = clock.UtcNow,
+                        SignatureVerified = true
+                    };
+
+                    await paymentEvents.AddAsync(reconstructed, token);
+                }
+
+                current.GatewayResultCode = verification.ResultCode;
+                current.GatewayMessage = verification.Message;
+
+                if (reconstructed.Status is not (PaymentEventStatus.Processed or PaymentEventStatus.Duplicate))
+                {
+                    pendingEvent = reconstructed.Id;
                 }
             }
             else
@@ -1549,10 +1601,10 @@ public sealed class PaymentProcessingCommandHandler(
             // applying it fails, it is still on the queue to be reprocessed.
             await unitOfWork.SaveChangesAsync(token);
 
-            return pendingCapture;
+            return pendingEvent;
         }, cancellationToken);
 
-        if (captureToApply is { } paymentEventId)
+        if (eventToApply is { } paymentEventId)
         {
             // THE OUTCOME IS READ AND LOGGED, NOT DISCARDED - the same treatment the webhook path
             // gives it. This was once `await HandleAsync(...)` with the Result thrown away, so a
@@ -1566,7 +1618,13 @@ public sealed class PaymentProcessingCommandHandler(
                 // lock; the donation exists and there is nothing for anybody to follow up.
                 unitOfWork.DiscardChanges();
 
-                if (await donations.GetDonationByIntentAsync(intentId, cancellationToken) is not null)
+                if (verification.Status != PaymentAttemptStatus.Succeeded)
+                {
+                    logger.LogInformation(
+                        "The reconstructed failure for intent {IntentReference} was not applied: {Message}",
+                        intentReference, applied.Error!.Message);
+                }
+                else if (await donations.GetDonationByIntentAsync(intentId, cancellationToken) is not null)
                 {
                     logger.LogInformation(
                         "The reconstructed capture for intent {IntentReference} was recorded by a "
