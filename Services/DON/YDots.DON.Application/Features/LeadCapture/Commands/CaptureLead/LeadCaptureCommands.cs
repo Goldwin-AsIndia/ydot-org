@@ -706,6 +706,32 @@ public sealed class LeadCaptureCommandHandler(
             ? LeadSources.BulkUpload
             : request.DefaultSource.Trim();
 
+        // ---- Duplicates ----------------------------------------------------------------------
+        //
+        // A ROW THAT IS ALREADY AN OPEN LEAD ON THE SAME CAMPAIGN IS REJECTED, and so is a row that
+        // repeats an earlier row of the same file. Nothing checked either, so uploading a file a
+        // second time created every lead in it again. Matched on the e-mail address or the mobile
+        // number, as the file gives them and as the lead stores them; the same person on ANOTHER
+        // campaign is not a duplicate - a lead belongs to a campaign.
+        var existingLeads = await leadRepository.FindOpenLeadsByContactAsync(
+            currentUser.OrganisationId,
+            [.. request.Rows
+                .Select(row => row.EmailAddress?.Trim().ToLowerInvariant())
+                .Where(email => !string.IsNullOrWhiteSpace(email))
+                .Select(email => email!)],
+            [.. request.Rows
+                .Select(row => CompleteMobileNumber(row.MobileNumber))
+                .Where(mobile => mobile is not null)
+                .Select(mobile => mobile!)],
+            cancellationToken);
+
+        var seenInFile = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+
+        // ONE BLOCK OF REFERENCES FOR THE WHOLE FILE, handed out in row order. See
+        // IReferenceNumberGenerator.NextLeadReferencesAsync for why one call per row failed.
+        var references = new Queue<string>(
+            await referenceNumbers.NextLeadReferencesAsync(request.Rows.Count, cancellationToken));
+
         var results = new List<BulkLeadImportRowResult>(request.Rows.Count);
         var imported = 0;
 
@@ -783,7 +809,14 @@ public sealed class LeadCaptureCommandHandler(
                 continue;
             }
 
-            var reference = await referenceNumbers.NextLeadReferenceAsync(cancellationToken);
+            var duplicate = DescribeDuplicate(row.RowNumber, email, mobile, campaign, existingLeads, seenInFile);
+            if (duplicate is not null)
+            {
+                results.Add(new BulkLeadImportRowResult(row.RowNumber, false, null, duplicate));
+                continue;
+            }
+
+            var reference = references.Dequeue();
 
             var lead = new CreateLeadRequest
             {
@@ -835,6 +868,64 @@ public sealed class LeadCaptureCommandHandler(
             rejected == 0
                 ? $"All {imported} leads were created."
                 : $"{imported} of {request.Rows.Count} leads were created. {rejected} rows were rejected and are listed below."));
+    }
+
+    /// <summary>
+    /// Why an upload row is a duplicate, or null when it is not.
+    ///
+    /// AN OPEN LEAD ON THE SAME CAMPAIGN with the row's e-mail address or mobile number is named
+    /// by its reference, so the person can find it; a row repeating an earlier row of the file is
+    /// named by that row. A row that passes is remembered, so the rows after it are checked
+    /// against it too.
+    /// </summary>
+    private static string? DescribeDuplicate(
+        int rowNumber,
+        string? email,
+        string? mobile,
+        Campaign campaign,
+        IReadOnlyList<Lead> existingLeads,
+        Dictionary<string, int> seenInFile)
+    {
+        var emailKey = email?.ToLowerInvariant();
+
+        var existing = existingLeads.FirstOrDefault(lead =>
+            lead.CampaignId == campaign.Id
+            && ((emailKey is not null && string.Equals(lead.EmailAddress?.Trim(), emailKey, StringComparison.OrdinalIgnoreCase))
+                || (mobile is not null && lead.MobileNumber == mobile)));
+
+        if (existing is not null)
+        {
+            var matched = emailKey is not null
+                          && string.Equals(existing.EmailAddress?.Trim(), emailKey, StringComparison.OrdinalIgnoreCase)
+                ? $"e-mail address {email}"
+                : $"mobile number {mobile}";
+
+            return $"Lead {existing.LeadReference} already has the {matched} on campaign {campaign.Code}. "
+                   + "The row was not added again.";
+        }
+
+        var keys = new[]
+        {
+            emailKey is null ? null : $"{campaign.Id}|e|{emailKey}",
+            mobile is null ? null : $"{campaign.Id}|m|{mobile}",
+        }.Where(key => key is not null).Select(key => key!).ToList();
+
+        foreach (var key in keys)
+        {
+            if (seenInFile.TryGetValue(key, out var earlierRow))
+            {
+                return $"Row {earlierRow} of this file already has the same "
+                       + (key.Contains("|e|", StringComparison.Ordinal) ? "e-mail address" : "mobile number")
+                       + $" on campaign {campaign.Code}. The row was not added twice.";
+            }
+        }
+
+        foreach (var key in keys)
+        {
+            seenInFile[key] = rowNumber;
+        }
+
+        return null;
     }
 
     /// <summary>

@@ -322,6 +322,33 @@ public sealed class LeadRepository(DonDbContext context, PeopleDirectory people)
                 .Max();
     }
 
+    public async Task<IReadOnlyList<Lead>> FindOpenLeadsByContactAsync(
+        Guid organisationId,
+        IReadOnlyCollection<string> normalisedEmails,
+        IReadOnlyCollection<string> mobileNumbers,
+        CancellationToken cancellationToken = default)
+    {
+        var emails = normalisedEmails.Where(email => !string.IsNullOrWhiteSpace(email)).Distinct().ToArray();
+        var mobiles = mobileNumbers.Where(mobile => !string.IsNullOrWhiteSpace(mobile)).Distinct().ToArray();
+
+        if (emails.Length == 0 && mobiles.Length == 0)
+        {
+            return [];
+        }
+
+        return await context.Leads
+            .AsNoTracking()
+            .Include(lead => lead.Campaign)
+            .Where(lead => lead.OrganisationId == organisationId
+                           && lead.ConvertedDonorId == null
+                           && lead.Status != LeadStatus.Converted
+                           && lead.Status != LeadStatus.Closed
+                           && lead.Status != LeadStatus.Suppressed
+                           && ((lead.EmailAddress != null && emails.Contains(lead.EmailAddress.ToLower()))
+                               || (lead.MobileNumber != null && mobiles.Contains(lead.MobileNumber))))
+            .ToListAsync(cancellationToken);
+    }
+
     public async Task<IReadOnlyList<Lead>> FindDuplicateCandidatesAsync(
         Guid organisationId,
         string? email,

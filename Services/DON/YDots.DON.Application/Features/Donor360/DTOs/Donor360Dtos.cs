@@ -104,7 +104,22 @@ public sealed record CommunicationPreferenceResponse(
 
     /// <summary>The channel and the consent state as every Donors screen words them ("Call", "Not provided").</summary>
     string? ChannelLabel = null,
-    string? ConsentStateLabel = null);
+    string? ConsentStateLabel = null,
+
+    /// <summary>The consent record in force for the channel, or null when nothing has been recorded.</summary>
+    Guid? ConsentId = null,
+
+    /// <summary>That record's version, which a withdrawal must send back.</summary>
+    long? Version = null,
+
+    /// <summary>
+    /// What this caller may do to the channel's consent from Donor 360: "Grant" and/or "Withdraw",
+    /// decided from the consent state and the Consent Centre's grant and withdraw permissions.
+    ///
+    /// THE UPDATE HAPPENS HERE NOW. Donor 360 used to offer only a Manage button that opened the
+    /// Consent Centre on another page.
+    /// </summary>
+    IReadOnlyList<string>? PermittedActions = null);
 
 /// <summary>
 /// One row of "Donation totals by stage". Carries its own cut-off and freshness because the

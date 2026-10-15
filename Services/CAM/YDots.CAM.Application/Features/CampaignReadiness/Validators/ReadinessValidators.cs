@@ -1,4 +1,5 @@
 using FluentValidation;
+using YDots.CAM.Application.Common.Abstractions.Services;
 using YDots.CAM.Application.Features.CampaignReadiness.DTOs;
 
 namespace YDots.CAM.Application.Features.CampaignReadiness.Validators;
@@ -6,11 +7,22 @@ namespace YDots.CAM.Application.Features.CampaignReadiness.Validators;
 /// <summary>Validator for adding a readiness check.</summary>
 public sealed class CreateReadinessCheckRequestValidator : AbstractValidator<CreateReadinessCheckRequest>
 {
-    public CreateReadinessCheckRequestValidator()
+    /// <summary>The refusal for a due date before today, shared with the edit path.</summary>
+    internal const string PastDueDateMessage = "The due date cannot be in the past.";
+
+    public CreateReadinessCheckRequestValidator(IDateTimeProvider clock)
     {
+        ArgumentNullException.ThrowIfNull(clock);
+
         RuleFor(request => request.CheckName)
             .NotEmpty().WithMessage("Name the check.")
             .MaximumLength(200);
+
+        // A NEW CHECK CANNOT FALL DUE YESTERDAY. It would be overdue from the moment it was
+        // created, with nothing anybody could have done to finish it in time. Today is allowed.
+        RuleFor(request => request.DueDate)
+            .Must(due => due is null || due.Value >= clock.TodayUtc)
+            .WithMessage(PastDueDateMessage);
 
         RuleFor(request => request.Category).IsInEnum();
 

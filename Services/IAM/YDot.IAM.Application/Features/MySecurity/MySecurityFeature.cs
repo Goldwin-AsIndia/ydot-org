@@ -10,6 +10,7 @@ using YDot.IAM.Application.Common.Settings;
 using YDot.IAM.Application.DTOs;
 using YDot.IAM.Application.Features.Authentication.DTOs;
 using YDot.IAM.Application.Features.Users.DTOs;
+using YDot.IAM.Application.Features.Users.Mappings;
 using YDot.IAM.Domain.Entities;
 using YDot.IAM.Domain.Enums;
 using YDot.IAM.Domain.ValueObjects;
@@ -106,6 +107,18 @@ public sealed class MySecurityFeatureHandler(
         {
             logger.LogWarning("MFA enrolment failed because the current user was not found. UserId: {UserId}.", currentUser.UserId);
             return Result.Failure<MfaEnrolmentResponse>(Error.Unauthorised());
+        }
+
+        // ONE FACTOR OF EACH KIND. Nothing stopped a second authenticator or a second e-mail factor
+        // being set up beside a working one, so the same method was offered again and again and
+        // the page listed it twice. Replacing one - a new phone - means removing the old first.
+        var existing = await security.GetMfaMethodsAsync(user.Id, cancellationToken);
+        if (existing.Any(method => method.MethodType == command.MethodType && method.Status == MfaMethodStatus.Active))
+        {
+            logger.LogWarning("MFA enrolment rejected because the method is already enrolled. UserId: {UserId}, MethodType: {MethodType}.", user.Id, command.MethodType);
+            return Result.Failure<MfaEnrolmentResponse>(Error.Duplicate(
+                $"{UserMappingConfig.DescribeMfaMethod(command.MethodType)} is already set up on this account. "
+                + "Remove it from My Security first if you want to set it up again."));
         }
 
         var businessUnit = await businessUnits.GetByIdAsync(user.BusinessUnitId, cancellationToken);

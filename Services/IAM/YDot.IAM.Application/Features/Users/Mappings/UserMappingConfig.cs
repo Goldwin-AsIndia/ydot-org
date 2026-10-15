@@ -259,6 +259,42 @@ public static class UserMappingConfig
         _ => "Verification method"
     };
 
+    /// <summary>
+    /// The methods an account may still set up, in the order the enrolment screen lists them.
+    ///
+    /// ONLY WHAT THE SERVER CAN ENROL. Security keys are refused at enrolment, so they are not
+    /// offered; e-mail needs an address to send codes to. A kind already in use is left out -
+    /// enrolment refuses a second one.
+    /// </summary>
+    public static IReadOnlyList<EnrollableMfaMethodResponse> EnrollableMfaMethods(
+        IEnumerable<MfaMethodType> activeMethodTypes, bool hasEmailAddress)
+    {
+        var inUse = activeMethodTypes.ToHashSet();
+        var options = new List<EnrollableMfaMethodResponse>();
+
+        if (!inUse.Contains(MfaMethodType.AuthenticatorApp))
+        {
+            options.Add(new EnrollableMfaMethodResponse(
+                MfaMethodType.AuthenticatorApp,
+                "Authenticator App",
+                "Scan a QR code with Google Authenticator, Authy or Microsoft Authenticator",
+                "ri-smartphone-line",
+                IsRecommended: true));
+        }
+
+        if (hasEmailAddress && !inUse.Contains(MfaMethodType.Email))
+        {
+            options.Add(new EnrollableMfaMethodResponse(
+                MfaMethodType.Email,
+                "E-mail OTP",
+                "Receive a one-time passcode at your registered e-mail address",
+                "ri-mail-line",
+                IsRecommended: false));
+        }
+
+        return options;
+    }
+
     /// <summary>Where an enrolled factor stands, in the words the security page uses.</summary>
     public static string DescribeMfaStatus(MfaMethodStatus status) => status switch
     {

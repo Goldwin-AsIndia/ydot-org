@@ -39,6 +39,20 @@ public sealed class ReferenceNumberGenerator(
         return Format(_settings.LeadReferencePrefix, year, sequence + 1);
     }
 
+    public async Task<IReadOnlyList<string>> NextLeadReferencesAsync(
+        int count, CancellationToken cancellationToken = default)
+    {
+        if (count <= 0)
+        {
+            return [];
+        }
+
+        var year = clock.UtcNow.Year;
+        var sequence = await leadRepository.GetMaxReferenceSequenceAsync(year, cancellationToken);
+
+        return [.. Enumerable.Range(1, count).Select(offset => Format(_settings.LeadReferencePrefix, year, sequence + offset))];
+    }
+
     public async Task<string> NextMergeCaseReferenceAsync(CancellationToken cancellationToken = default)
     {
         var year = clock.UtcNow.Year;

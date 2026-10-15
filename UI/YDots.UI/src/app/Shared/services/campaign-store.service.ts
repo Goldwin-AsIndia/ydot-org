@@ -237,6 +237,7 @@ export class CampaignStoreService {
       code,
       name: draft.name,
       purpose: draft.purpose ?? '',
+      purposeHtml: draft.purposeHtml,
       status: draft.status ?? 'Draft',
       ownerReference: draft.ownerReference ?? draft.createdByRef,
       ownerReferences: draft.ownerReferences,
@@ -311,6 +312,9 @@ export class CampaignStoreService {
         reminderTime: draft.reminderTime || null,
         publicDescription: draft.publicDescriptionHtml ?? draft.publicDescription ?? '',
         termsAndNotice: draft.termsNoticeHtml ?? draft.termsNotice ?? '',
+        // The formatting travels beside the plain text; without it the purpose came back from
+        // every save as one unformatted paragraph.
+        purposeHtml: draft.purposeHtml ?? null,
       })
       .subscribe({
         // THE CALLBACK RUNS AFTER THE REFRESH, not before it. A caller that wants to act on
@@ -343,12 +347,21 @@ export class CampaignStoreService {
    * IT SENDS THE WHOLE RECORD, because the API's update is a PUT rather than a patch: sending
    * only the changed fields would blank everything omitted. The current record supplies whatever
    * the patch does not.
+   *
+   * `onSaved` HEARS WHAT THE SERVER SAID, after it said it. The wizard used to announce "saved"
+   * the moment it called this, so an edit the server refused - a campaign no longer a Draft, a
+   * stale version - was reported as saved and then quietly undone by the refresh.
    */
-  update(ref: string, patch: Partial<CampaignRecord>): void {
+  update(
+    ref: string,
+    patch: Partial<CampaignRecord>,
+    onSaved?: (outcome: { readonly saved: boolean; readonly error?: string }) => void,
+  ): void {
     const current = this.get(ref);
     const id = this.idsByCode.get(ref);
 
     if (!current || !id) {
+      onSaved?.({ saved: false, error: 'That campaign is not loaded. Reload the page and try again.' });
       return;
     }
 
@@ -391,12 +404,18 @@ export class CampaignStoreService {
         reminderTime: merged.reminderTime || null,
         publicDescription: merged.publicDescriptionHtml ?? merged.publicDescription ?? '',
         termsAndNotice: merged.termsNoticeHtml ?? merged.termsNotice ?? '',
+        purposeHtml: merged.purposeHtml ?? null,
       })
       .subscribe({
-        next: () => this.refresh(),
+        // AFTER THE REFRESH, so a caller that goes on to submit sends the version this save
+        // produced rather than the one before it.
+        next: () => this.refresh(() => onSaved?.({ saved: true })),
         error: (error: unknown) => {
-          this.loadError.set(saveFailureMessage(error, 'The campaign could not be saved.'));
+          const message = saveFailureMessage(error, 'The campaign could not be saved.');
+
+          this.loadError.set(message);
           this.refresh();
+          onSaved?.({ saved: false, error: message });
         },
       });
   }
@@ -817,6 +836,7 @@ export class CampaignStoreService {
       ...record,
       name: detail.name,
       purpose: detail.purpose,
+      purposeHtml: detail.purposeHtml ?? undefined,
       status: this.toDisplayStatus(detail.status),
       startDate: detail.startDate,
       endDate: detail.endDate,
@@ -963,12 +983,13 @@ export class CampaignStoreService {
       campaignAmount: item.campaignAmount ?? existing?.campaignAmount ?? 0,
       budgetAmount: item.budgetAmount ?? undefined,
 
-      // NOT ON THE LIST PROJECTION. The reconciled figure belongs to the PAYMENTS module and is
-      // shown on the campaign detail, which fetches it separately - putting a stale zero here
-      // would be worse than showing nothing.
-      reconciledAmount: existing?.reconciledAmount ?? 0,
+      // WHAT THE CAMPAIGN HAS RAISED, read by CAM from the payments it shares a database with
+      // (refunds deducted) - the same rule the campaign detail applies to its own figure.
+      reconciledAmount: item.raisedAmount ?? existing?.reconciledAmount ?? 0,
 
-      progress: item.elapsedPercent ?? 0,
+      // THE BAR IS MONEY AGAINST TARGET. It showed `elapsedPercent` - how far through its dates
+      // the campaign was - so it filled up with time whatever had been raised.
+      progress: item.raisedPercent ?? 0,
 
       // A campaign with tracking assets has something pointing at it, which is what the delete
       // rule turns on.
@@ -985,8 +1006,8 @@ export class CampaignStoreService {
       // A REFRESH MUST NOT UNDO A DETAIL LOAD. `refresh()` rebuilds every row from the list
       // projection, which carries none of the detail fields - so without carrying these forward
       // a background refresh would blank the Currency, Channel and Location the user is looking
-      // at, and drop the permittedActions the lifecycle buttons are drawn from.
-      permittedActions: existing?.permittedActions,
+      // at. The row's own permittedActions come with it now, decided as the detail decides them.
+      permittedActions: item.permittedActions ?? existing?.permittedActions,
       detailLoaded: existing?.detailLoaded,
 
       // The detail-only fields are carried forward too: a refresh that kept `detailLoaded` but
@@ -1010,6 +1031,7 @@ export class CampaignStoreService {
             termsNotice: existing.termsNotice,
             termsNoticeHtml: existing.termsNoticeHtml,
             purpose: existing.purpose,
+            purposeHtml: existing.purposeHtml,
           }
         : {}),
     } as CampaignRecord;

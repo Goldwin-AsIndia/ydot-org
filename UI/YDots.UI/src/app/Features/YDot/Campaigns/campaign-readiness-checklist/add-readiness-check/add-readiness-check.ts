@@ -247,11 +247,26 @@ export class AddReadinessCheckComponent {
   protected readonly cNameValid = computed(() => this.cName().trim().length > 0);
   protected readonly cCategoryValid = computed(() => this.cCategory() !== '');
   protected readonly cSuccessValid = computed(() => this.cSuccessCriteria().trim().length > 0);
+
+  /**
+   * The earliest due date the picker offers: today. A check being edited that already fell due
+   * keeps its own date as the floor, so it can be saved without being re-dated - the server
+   * refuses only a due date MOVED into the past.
+   */
+  protected readonly dueDateMin = computed(() => {
+    const now = new Date();
+    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    const original = this.editing()?.dueDate ?? '';
+    return original && original < today ? original : today;
+  });
+  protected readonly cDueDateValid = computed(() => !this.cDueDate() || this.cDueDate() >= this.dueDateMin());
+
   protected readonly checkValid = computed(
     () =>
       this.cNameValid() &&
       this.cCategoryValid() &&
-      this.cSuccessValid(),
+      this.cSuccessValid() &&
+      this.cDueDateValid(),
   );
 
   // ================= Add check =================
@@ -295,7 +310,9 @@ export class AddReadinessCheckComponent {
         ? 'crcx-c-cat'
         : !this.cSuccessValid()
           ? 'crcx-c-success'
-          : '';
+          : !this.cDueDateValid()
+            ? 'crcx-c-due'
+            : '';
     if (id) setTimeout(() => this.document.getElementById(id)?.focus(), 0);
   }
 

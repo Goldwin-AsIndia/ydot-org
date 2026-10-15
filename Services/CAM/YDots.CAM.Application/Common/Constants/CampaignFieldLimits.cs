@@ -26,6 +26,12 @@ public static class CampaignFieldLimits
     /// <summary>Plain text on both sides - the wizard sends <c>innerText</c>, not markup.</summary>
     public const int Purpose = 1000;
 
+    /// <summary>
+    /// The purpose's markup beside its text. The wizard counts 1,000 visible characters; this
+    /// holds them with their tags, the same allowance the public description has.
+    /// </summary>
+    public const int PurposeHtml = 8000;
+
     /// <summary>Rich text. The wizard shows a 2,000-character counter; this holds its markup.</summary>
     public const int PublicDescription = 8000;
 

@@ -347,13 +347,27 @@ public sealed class CampaignDirectory(PaymentDbContext context, ILogger<Campaign
 
             var name = reader.GetString(0);
             var status = reader.IsDBNull(1) ? string.Empty : reader.GetString(1);
+            var startDate = reader.GetFieldValue<DateOnly>(2);
             var endDate = reader.GetFieldValue<DateOnly>(3);
             var currencyCode = reader.IsDBNull(4) ? null : reader.GetString(4);
             var campaignAmount = reader.IsDBNull(5) ? 0m : reader.GetDecimal(5);
+            var today = DateOnly.FromDateTime(DateTime.UtcNow);
 
-            var acceptingStatuses = new[] { "Approved", "Scheduled", "Active" };
+            // ACTIVE ONLY, THE SAME RULE AS THE PICKER (GetDonatableCampaignsAsync). This accepted
+            // Approved and Scheduled as well and never looked at the start date, so a QR code or a
+            // link naming a campaign that had been approved but not launched put that campaign in
+            // the donation form's list and took money for it - a campaign the picker itself would
+            // not have offered. An approved campaign opens for giving when it goes live.
+            if (string.Equals(status, "Approved", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(status, "Scheduled", StringComparison.OrdinalIgnoreCase)
+                || (string.Equals(status, "Active", StringComparison.OrdinalIgnoreCase) && startDate > today))
+            {
+                return new CampaignDonationEligibility(
+                    false, name, currencyCode,
+                    "This campaign is not open for donations yet.", campaignAmount);
+            }
 
-            if (!acceptingStatuses.Contains(status, StringComparer.OrdinalIgnoreCase))
+            if (!string.Equals(status, "Active", StringComparison.OrdinalIgnoreCase))
             {
                 return new CampaignDonationEligibility(
                     false, name, currencyCode,
@@ -363,7 +377,7 @@ public sealed class CampaignDirectory(PaymentDbContext context, ILogger<Campaign
             // The end date is inclusive - a campaign running to the 31st takes gifts all day on
             // the 31st, which is what everybody means by an end date and what the donor on the
             // last evening expects.
-            if (endDate < DateOnly.FromDateTime(DateTime.UtcNow))
+            if (endDate < today)
             {
                 return new CampaignDonationEligibility(
                     false, name, currencyCode, "This campaign has ended.", campaignAmount);

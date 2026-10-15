@@ -162,12 +162,30 @@ public static class DependencyInjection
                         var security = services.GetRequiredService<ISecurityRepository>();
                         var clock = services.GetRequiredService<IDateTimeProvider>();
 
+                        var now = clock.UtcNow;
+
                         var active = await security.IsSessionActiveAsync(
-                            sessionId, clock.UtcNow, context.HttpContext.RequestAborted);
+                            sessionId, now, context.HttpContext.RequestAborted);
 
                         if (!active)
                         {
                             context.Fail("That session has ended.");
+                            return;
+                        }
+
+                        // THE SESSION WAS JUST USED, so its activity stamp says so - see
+                        // ISecurityRepository.TouchSessionAsync for what read a stale one. A stamp
+                        // that cannot be written must not cost the request its answer.
+                        try
+                        {
+                            await security.TouchSessionAsync(
+                                sessionId, now, context.HttpContext.RequestAborted);
+                        }
+                        catch (Exception exception) when (exception is not OperationCanceledException)
+                        {
+                            services.GetRequiredService<ILoggerFactory>()
+                                .CreateLogger("YDot.IAM.SessionActivity")
+                                .LogWarning(exception, "Session {SessionId} activity could not be recorded.", sessionId);
                         }
                     },
 

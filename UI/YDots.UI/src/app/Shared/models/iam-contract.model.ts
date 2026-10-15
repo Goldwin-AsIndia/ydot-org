@@ -1452,6 +1452,370 @@ export interface CurrencyLookupResponseIReadOnlyListApiResponse {
   correlationId?: string | null;
 }
 
+export interface DashboardActionResponse {
+  key?: string | null;
+  rank?: number;
+  label?: string | null;
+  icon?: string | null;
+  route?: string | null;
+  isPrimary?: boolean;
+  queryParams?: Record<string, string> | null;
+}
+
+export interface DashboardActivityItemResponse {
+  id?: string | null;
+  actor?: string | null;
+  action?: string | null;
+  kindKey?: string | null;
+  kindLabel?: string | null;
+  icon?: string | null;
+  target?: string | null;
+  occurredAtUtc?: string;
+  isFailure?: boolean;
+}
+
+export interface DashboardActivityPanelResponse {
+  rank?: number;
+  title?: string | null;
+  caption?: string | null;
+  items?: DashboardActivityItemResponse[] | null;
+  stats?: DashboardStatResponse[] | null;
+  itemRoute?: string | null;
+  link?: DashboardLinkResponse;
+  empty?: DashboardEmptyStateResponse;
+}
+
+export interface DashboardAgendaItemResponse {
+  id?: string | null;
+  atUtc?: string | null;
+  title?: string | null;
+  subtitle?: string | null;
+  whenLabel?: string | null;
+  isLate?: boolean;
+  route?: string | null;
+  queryParams?: Record<string, string> | null;
+}
+
+export interface DashboardAgendaPanelResponse {
+  rank?: number;
+  title?: string | null;
+  items?: DashboardAgendaItemResponse[] | null;
+  figures?: DashboardStatResponse[] | null;
+  link?: DashboardLinkResponse;
+  empty?: DashboardEmptyStateResponse;
+}
+
+export interface DashboardAttentionItemResponse {
+  key?: string | null;
+  rank?: number;
+  label?: string | null;
+  hint?: string | null;
+  count?: number;
+  icon?: string | null;
+  route?: string | null;
+  queryParams?: Record<string, string> | null;
+}
+
+export interface DashboardChipResponse {
+  label?: string | null;
+  value?: number;
+  tone?: string | null;
+  icon?: string | null;
+}
+
+export interface DashboardCounterResponse {
+  key?: string | null;
+  rank?: number;
+  label?: string | null;
+  icon?: string | null;
+  value?: number;
+  route?: string | null;
+}
+
+export interface DashboardEmptyStateResponse {
+  title?: string | null;
+  hint?: string | null;
+  action?: DashboardLinkResponse;
+}
+
+export interface DashboardFeedItemResponse {
+  id?: string | null;
+  title?: string | null;
+  reference?: string | null;
+  atUtc?: string;
+  tag?: string | null;
+  statusLabel?: string | null;
+  tone?: string | null;
+  value?: number | null;
+  valueDisplay?: string | null;
+  icon?: string | null;
+  route?: string | null;
+  queryParams?: Record<string, string> | null;
+}
+
+export interface DashboardFeedPanelResponse {
+  rank?: number;
+  title?: string | null;
+  unit?: string | null;
+  currencyCode?: string | null;
+  eyebrow?: string | null;
+  totalValue?: number;
+  chips?: DashboardChipResponse[] | null;
+  items?: DashboardFeedItemResponse[] | null;
+  link?: DashboardLinkResponse;
+  empty?: DashboardEmptyStateResponse;
+}
+
+export interface DashboardFunnelAlertResponse {
+  label?: string | null;
+  actionLabel?: string | null;
+  route?: string | null;
+  isOk?: boolean;
+}
+
+export interface DashboardFunnelPanelResponse {
+  rank?: number;
+  title?: string | null;
+  headlinePercent?: number;
+  headlineLabel?: string | null;
+  headlineCaption?: string | null;
+  steps?: DashboardFunnelStepResponse[] | null;
+  alert?: DashboardFunnelAlertResponse;
+  headerLink?: DashboardLinkResponse;
+}
+
+export interface DashboardFunnelStepResponse {
+  label?: string | null;
+  count?: number;
+  percent?: number;
+  tone?: string | null;
+  route?: string | null;
+}
+
+export interface DashboardHeadlineResponse {
+  key?: string | null;
+  rank?: number;
+  label?: string | null;
+  icon?: string | null;
+  tone?: string | null;
+  display?: string | null;
+  caption?: string | null;
+  meterPercent?: number;
+  foot?: string | null;
+  route?: string | null;
+  spark?: DashboardSparkResponse;
+}
+
+export interface DashboardHealthPanelResponse {
+  rank?: number;
+  title?: string | null;
+  link?: DashboardLinkResponse;
+  slices?: DashboardSliceResponse[] | null;
+  centrePercent?: number | null;
+  centreCaption?: string | null;
+  rings?: DashboardRingResponse[] | null;
+}
+
+export interface DashboardLinkResponse {
+  label?: string | null;
+  route?: string | null;
+  queryParams?: Record<string, string> | null;
+}
+
+export interface DashboardMetaResponse {
+  icon?: string | null;
+  text?: string | null;
+  isUrgent?: boolean;
+  amount?: number | null;
+  currencyCode?: string | null;
+}
+
+export interface DashboardPanelsResponse {
+  trend?: DashboardTrendPanelResponse;
+  health?: DashboardHealthPanelResponse;
+  activity?: DashboardActivityPanelResponse;
+  agenda?: DashboardAgendaPanelResponse;
+  pipeline?: DashboardPipelinePanelResponse;
+  ranking?: DashboardRankingPanelResponse;
+  leaders?: DashboardRankingPanelResponse;
+  feed?: DashboardFeedPanelResponse;
+  sources?: DashboardSharePanelResponse;
+  funnel?: DashboardFunnelPanelResponse;
+}
+
+export interface DashboardPipelinePanelResponse {
+  rank?: number;
+  title?: string | null;
+  liveLabel?: string | null;
+  totalLabel?: string | null;
+  defaultStage?: string | null;
+  stages?: DashboardPipelineStageResponse[] | null;
+  emptyHint?: string | null;
+  createAction?: DashboardLinkResponse;
+  link?: DashboardLinkResponse;
+  footNote?: string | null;
+}
+
+export interface DashboardPipelineRowResponse {
+  id?: string | null;
+  code?: string | null;
+  name?: string | null;
+  kicker?: string | null;
+  detail?: string | null;
+  dialPercent?: number | null;
+  meta?: DashboardMetaResponse[] | null;
+  progressPercent?: number;
+  whenLabel?: string | null;
+  isUrgent?: boolean;
+  route?: string | null;
+  queryParams?: Record<string, string> | null;
+}
+
+export interface DashboardPipelineStageResponse {
+  key?: string | null;
+  label?: string | null;
+  count?: number;
+  emptyTitle?: string | null;
+  rows?: DashboardPipelineRowResponse[] | null;
+  palette?: string | null;
+}
+
+export interface DashboardRankingItemResponse {
+  key?: string | null;
+  label?: string | null;
+  value?: number;
+  count?: number;
+  share?: number;
+  route?: string | null;
+  queryParams?: Record<string, string> | null;
+}
+
+export interface DashboardRankingPanelResponse {
+  rank?: number;
+  title?: string | null;
+  caption?: string | null;
+  unit?: string | null;
+  currencyCode?: string | null;
+  countSingular?: string | null;
+  countPlural?: string | null;
+  items?: DashboardRankingItemResponse[] | null;
+  figures?: DashboardStatResponse[] | null;
+  headerLink?: DashboardLinkResponse;
+  link?: DashboardLinkResponse;
+  empty?: DashboardEmptyStateResponse;
+}
+
+export interface DashboardResponse {
+  module?: string | null;
+  generatedAtUtc?: string;
+  timeZone?: string | null;
+  scopeLabel?: string | null;
+  headlines?: DashboardHeadlineResponse[] | null;
+  counters?: DashboardCounterResponse[] | null;
+  attention?: DashboardAttentionItemResponse[] | null;
+  actions?: DashboardActionResponse[] | null;
+  panels?: DashboardPanelsResponse;
+  viewer?: DashboardViewerResponse;
+}
+
+export interface DashboardResponseApiResponse {
+  success?: boolean;
+  data?: DashboardResponse;
+  message?: string | null;
+  errorCode?: string | null;
+  errors?: ValidationError[] | null;
+  correlationId?: string | null;
+}
+
+export interface DashboardRingResponse {
+  key?: string | null;
+  label?: string | null;
+  caption?: string | null;
+  percent?: number | null;
+  tone?: string | null;
+  route?: string | null;
+}
+
+export interface DashboardShareItemResponse {
+  key?: string | null;
+  label?: string | null;
+  share?: number;
+  count?: number;
+  value?: number;
+  icon?: string | null;
+  route?: string | null;
+}
+
+export interface DashboardSharePanelResponse {
+  rank?: number;
+  title?: string | null;
+  unit?: string | null;
+  currencyCode?: string | null;
+  countPlural?: string | null;
+  headlinePercent?: number;
+  headlineLabel?: string | null;
+  leaderNote?: string | null;
+  items?: DashboardShareItemResponse[] | null;
+  rest?: DashboardShareItemResponse;
+  restHint?: string | null;
+  headerLink?: DashboardLinkResponse;
+  empty?: DashboardEmptyStateResponse;
+}
+
+export interface DashboardSliceResponse {
+  key?: string | null;
+  label?: string | null;
+  count?: number;
+  tone?: string | null;
+  route?: string | null;
+}
+
+export interface DashboardSparkResponse {
+  kind?: string | null;
+  values?: number[] | null;
+  highlightIndex?: number | null;
+}
+
+export interface DashboardStatResponse {
+  label?: string | null;
+  value?: number;
+  unit?: string | null;
+  note?: string | null;
+  isAlert?: boolean;
+  route?: string | null;
+}
+
+export interface DashboardTrendPanelResponse {
+  rank?: number;
+  title?: string | null;
+  caption?: string | null;
+  unit?: string | null;
+  currencyCode?: string | null;
+  countSingular?: string | null;
+  countPlural?: string | null;
+  points?: DashboardTrendPointResponse[] | null;
+  stats?: DashboardStatResponse[] | null;
+  link?: DashboardLinkResponse;
+  pointRoute?: string | null;
+  empty?: DashboardEmptyStateResponse;
+}
+
+export interface DashboardTrendPointResponse {
+  date?: string;
+  label?: string | null;
+  value?: number;
+  count?: number;
+  isToday?: boolean;
+}
+
+export interface DashboardViewerResponse {
+  displayName?: string | null;
+  organisationName?: string | null;
+  roleNames?: string[] | null;
+  scopeLabel?: string | null;
+  isPlatform?: boolean;
+}
+
 export interface DecideAccessRequestRequest {
   approved?: boolean;
   expectedVersion?: number;
@@ -1617,6 +1981,14 @@ export interface DocumentUploadPolicyResponseApiResponse {
   errorCode?: string | null;
   errors?: ValidationError[] | null;
   correlationId?: string | null;
+}
+
+export interface EnrollableMfaMethodResponse {
+  methodType?: MfaMethodType;
+  name?: string | null;
+  description?: string | null;
+  icon?: string | null;
+  isRecommended?: boolean;
 }
 
 export interface EnumOption {
@@ -4096,6 +4468,7 @@ export interface UserSecurityResponse {
   posture?: SecurityPostureResponse;
   recommendation?: SecurityRecommendationResponse;
   canGenerateRecoveryCodes?: boolean;
+  enrollableMfaMethods?: EnrollableMfaMethodResponse[] | null;
 }
 
 export interface UserSecurityResponseApiResponse {

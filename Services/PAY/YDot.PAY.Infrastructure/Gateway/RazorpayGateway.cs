@@ -508,6 +508,15 @@ public sealed class RazorpayGateway(
                 paymentId = resolved.PaymentId!;
             }
 
+            // AN IN-PAGE CHECKOUT IS KNOWN BY ITS ORDER until the browser confirms a payment. A
+            // card the bank declined never reaches that confirmation, so its attempt still names
+            // the order - and asking for "payments/order_..." answered 400, which read as "could
+            // not confirm". The declined payment was never recorded anywhere.
+            if (gatewayReference.StartsWith("order_", StringComparison.OrdinalIgnoreCase))
+            {
+                return await DescribeOrderAsync(client, gatewayReference, cancellationToken);
+            }
+
             using var response = await client.GetAsync(
                 $"payments/{Uri.EscapeDataString(paymentId)}", cancellationToken);
 
@@ -543,6 +552,53 @@ public sealed class RazorpayGateway(
                 "GATEWAY_UNREACHABLE",
                 "We could not confirm this payment with Razorpay. It will be checked again.");
         }
+    }
+
+    /// <summary>
+    /// What happened to the payments made against an in-page checkout's order.
+    ///
+    /// A CAPTURED OR AUTHORISED PAYMENT WINS over a newer failed one: the checkout lets a donor
+    /// whose first card was declined try another in the same window, and the one that went
+    /// through is the truth. Otherwise the newest payment decides. An order with no payment at all
+    /// is Pending - the donor may still be on the form - not failed.
+    /// </summary>
+    private async Task<GatewayVerificationResult> DescribeOrderAsync(
+        HttpClient client, string orderId, CancellationToken cancellationToken)
+    {
+        using var response = await client.GetAsync(
+            $"orders/{Uri.EscapeDataString(orderId)}/payments", cancellationToken);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            logger.LogWarning(
+                "Razorpay could not list the payments of order {OrderId}: {StatusCode}.",
+                orderId,
+                (int)response.StatusCode);
+
+            return Unknown(
+                $"RAZORPAY_{(int)response.StatusCode}",
+                "Razorpay could not be asked about this payment. It will be checked again.");
+        }
+
+        var collection = await response.Content.ReadFromJsonAsync<PaymentCollectionResponse>(
+            JsonOptions, cancellationToken);
+
+        var payments = collection?.Items?
+            .Where(payment => !string.IsNullOrWhiteSpace(payment.Id))
+            .ToList() ?? [];
+
+        var chosen = payments
+            .Where(payment => MapStatus(payment.Status) is PaymentAttemptStatus.Succeeded
+                or PaymentAttemptStatus.Authorised)
+            .OrderByDescending(payment => payment.CreatedAt ?? 0)
+            .FirstOrDefault()
+            ?? payments.OrderByDescending(payment => payment.CreatedAt ?? 0).FirstOrDefault();
+
+        return chosen is null
+            ? new GatewayVerificationResult(
+                PaymentAttemptStatus.Pending, null, null, null, null, null,
+                "ORDER_UNPAID", "No payment has been made against this order yet.")
+            : Describe(chosen);
     }
 
     /// <summary>
@@ -942,7 +998,8 @@ public sealed class RazorpayGateway(
                 ? DateTimeOffset.FromUnixTimeSeconds(payment.CreatedAt.Value)
                 : null,
             payment.ErrorCode,
-            payment.ErrorDescription);
+            payment.ErrorDescription,
+            payment.Id);
     }
 
     /// <summary>
@@ -1206,6 +1263,12 @@ public sealed class RazorpayGateway(
         public long? CreatedAt { get; init; }
         public string? ErrorCode { get; init; }
         public string? ErrorDescription { get; init; }
+    }
+
+    /// <summary>GET orders/{id}/payments: Razorpay's collection envelope.</summary>
+    private sealed class PaymentCollectionResponse
+    {
+        public IReadOnlyList<PaymentResponse>? Items { get; init; }
     }
 
     private sealed class CardResponse

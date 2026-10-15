@@ -805,6 +805,7 @@ public sealed class CampaignLifecycleCommandHandler(
             campaign.Version,
             message,
             CampaignMappingConfig.PermittedActionsFor(
-                campaign, currentUser.HasPermission, outstanding.Count > 0, pendingClose is not null));
+                campaign, currentUser.HasPermission, outstanding.Count > 0, pendingClose is not null,
+                clock.TodayUtc));
     }
 }

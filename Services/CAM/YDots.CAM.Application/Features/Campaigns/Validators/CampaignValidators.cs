@@ -39,6 +39,24 @@ internal static class CampaignTextRules
             .WithMessage("Remove the HTML tags - this field is shown as plain text.");
 }
 
+/// <summary>The money rule shared by the create and update validators.</summary>
+internal static class CampaignAmountRules
+{
+    /// <summary>
+    /// The target may not be smaller than the campaign amount.
+    ///
+    /// THE CAMPAIGN AMOUNT IS WHAT ONE GIFT IS, since the donation forms charge it as stated. A
+    /// target below it is a goal the very first gift overshoots, which is a typing slip rather than
+    /// a plan - 1,000 as the target and 10,000 as the amount, the two figures entered the wrong way
+    /// round. Checked only once both are positive; the rules above already speak for a missing one.
+    /// </summary>
+    internal static IRuleBuilderOptions<T, decimal> TargetCoversCampaignAmount<T>(
+        this IRuleBuilder<T, decimal> rule, Func<T, decimal> campaignAmount) =>
+        rule.Must((request, target) =>
+                target <= 0m || campaignAmount(request) <= 0m || target >= campaignAmount(request))
+            .WithMessage("The target amount cannot be less than the campaign amount.");
+}
+
 internal static class CampaignOwnerRules
 {
     internal static IRuleBuilderOptions<T, IReadOnlyList<Guid>> MustAllExist<T>(
@@ -114,6 +132,10 @@ public sealed class CreateCampaignRequestValidator : AbstractValidator<CreateCam
             .NotEmpty().WithMessage("Describe what the campaign is for.")
             .MaximumLength(CampaignFieldLimits.Purpose);
 
+        RuleFor(request => request.PurposeHtml)
+            .MaximumLength(CampaignFieldLimits.PurposeHtml)
+            .WithMessage("The purpose's formatting is too long to keep. Remove some of it and save again.");
+
         RuleFor(request => request.FundOrProgramme)
             .NotEmpty().WithMessage("Name the fund or programme this campaign raises for.")
             .MaximumLength(250)
@@ -181,6 +203,9 @@ public sealed class CreateCampaignRequestValidator : AbstractValidator<CreateCam
             .WithMessage("That target amount is larger than this field can hold.")
             .Must(amount => decimal.Round(amount, 2) == amount)
             .WithMessage("A target amount can have at most two decimal places.");
+
+        RuleFor(request => request.TargetAmount)
+            .TargetCoversCampaignAmount(request => request.CampaignAmount);
 
         // TARGET AND BUDGET ARE NOT VALIDATED HERE WHILE TARGET & BUDGET IS ON HOLD.
         //
@@ -295,6 +320,10 @@ public sealed class UpdateCampaignRequestValidator : AbstractValidator<UpdateCam
             .NotEmpty().WithMessage("Describe what the campaign is for.")
             .MaximumLength(CampaignFieldLimits.Purpose);
 
+        RuleFor(request => request.PurposeHtml)
+            .MaximumLength(CampaignFieldLimits.PurposeHtml)
+            .WithMessage("The purpose's formatting is too long to keep. Remove some of it and save again.");
+
         RuleFor(request => request.FundOrProgramme)
             .NotEmpty().WithMessage("Name the fund or programme this campaign raises for.")
             .MaximumLength(250)
@@ -332,6 +361,9 @@ public sealed class UpdateCampaignRequestValidator : AbstractValidator<UpdateCam
             .WithMessage("That target amount is larger than this field can hold.")
             .Must(amount => decimal.Round(amount, 2) == amount)
             .WithMessage("A target amount can have at most two decimal places.");
+
+        RuleFor(request => request.TargetAmount)
+            .TargetCoversCampaignAmount(request => request.CampaignAmount);
 
         // TARGET AND BUDGET ARE NOT VALIDATED HERE WHILE TARGET & BUDGET IS ON HOLD.
         //

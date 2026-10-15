@@ -505,7 +505,26 @@ public sealed record UserSecurityResponse(
     /// Whether backup codes can be issued now: only with a confirmed second factor, which is the
     /// rule the server applies when they are asked for.
     /// </summary>
-    bool CanGenerateRecoveryCodes = false);
+    bool CanGenerateRecoveryCodes = false,
+
+    /// <summary>
+    /// The verification methods this account can still set up: the ones the platform supports,
+    /// less any already in use. Empty once every kind is set up, and then there is nothing to add.
+    ///
+    /// THE ENROLMENT SCREEN DREW ITS OWN FIXED LIST, so the authenticator app and e-mail were
+    /// offered again to somebody already using both - and the server accepted the second copy.
+    /// </summary>
+    IReadOnlyList<EnrollableMfaMethodResponse>? EnrollableMfaMethods = null);
+
+/// <summary>One verification method a person may set up, in the words the enrolment screen uses.</summary>
+public sealed record EnrollableMfaMethodResponse(
+    MfaMethodType MethodType,
+    string Name,
+    string Description,
+
+    /// <summary>The Remix icon class the screen draws beside the method.</summary>
+    string Icon,
+    bool IsRecommended);
 
 /// <summary>
 /// How well an account is protected, scored by the server from the same facts it enforces.

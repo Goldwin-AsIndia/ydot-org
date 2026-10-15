@@ -90,6 +90,8 @@
              Each half opens a pop-up, so each ends in a small "opens a window" icon, centred
              on the right of the row, instead of an arrow; aria-haspopup tells assistive tech the same. -->
 <div class="msec-card msec-action-card">
+        <!-- Offered only while the server lists a method this account can still set up. -->
+        @if (canAddMfaMethod()) {
 <button type="button" class="msec-action-section" aria-haspopup="dialog" (click)="enrolMfa()">
 <span class="msec-icon-circle msec-action-icon"><i class="ri-fingerprint-line"></i></span>
 <div class="msec-action-body">
@@ -102,6 +104,7 @@
 </button>
 
           <span class="msec-info-divider"></span>
+        }
 
           <button type="button" class="msec-action-section" aria-haspopup="dialog" (click)="openChangePassword()">
 <span class="msec-icon-circle msec-action-icon"><i class="ri-lock-password-line"></i></span>

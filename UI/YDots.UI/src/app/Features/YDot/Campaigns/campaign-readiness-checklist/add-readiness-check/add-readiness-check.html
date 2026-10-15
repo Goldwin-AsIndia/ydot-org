@@ -126,7 +126,8 @@
 
         <div class="crcx-field">
           <label class="crcx-label" for="crcx-c-due">Due date</label>
-          <input id="crcx-c-due" class="crcx-input" type="date" [ngModel]="cDueDate()" (ngModelChange)="cDueDate.set($event)" />
+          <input id="crcx-c-due" class="crcx-input" type="date" [min]="dueDateMin()" [class.is-invalid]="submitted() && !cDueDateValid()" [attr.aria-invalid]="submitted() && !cDueDateValid()" [ngModel]="cDueDate()" (ngModelChange)="cDueDate.set($event)" />
+          @if (submitted() && !cDueDateValid()) { <span class="crcx-error" role="alert">The due date cannot be in the past.</span> }
         </div>
       </div>
     </section>

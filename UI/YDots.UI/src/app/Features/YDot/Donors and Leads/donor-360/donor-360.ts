@@ -12,11 +12,26 @@ import {
   ConfirmDialogConfig,
 } from '../../../../Shared/models/donors-leads.model';
 import { effect, ElementRef, ViewChild } from '@angular/core';
+import { ConfirmModalComponent } from '../../../../Shared/components/confirm-modal/confirm-modal';
+
+/** One consent channel on the Consent tab, with what this caller may do to it. */
+interface ConsentChannelRow {
+  readonly channel: string;
+  readonly value: string;
+  readonly state: string;
+  readonly stateLabel: string;
+  readonly since: string;
+  readonly recognition: boolean;
+  readonly recorded: boolean;
+  readonly consentId: string | null;
+  readonly version: number | null;
+  readonly actions: readonly string[];
+}
 
 
 @Component({
   selector: 'app-donor-360',
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, ConfirmModalComponent],
   templateUrl: './donor-360.html',
   styleUrl: './donor-360.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -32,7 +47,8 @@ export class Donor360Component {
         case 'follow-ups': return this.upcoming().length;
         case 'documents': return this.documents().length;
         case 'activity': return this.activity().length;
-        case 'consent': return this.channelConsents().length;
+        // Recorded channels only: every channel is listed now, so it can be granted in place.
+        case 'consent': return this.channelConsents().filter((row) => row.recorded).length;
         default: return 0;
       }
     }
@@ -707,16 +723,125 @@ export class Donor360Component {
       return parts.map((part, index) => ({ ...part, tone: index % 5, share: total ? Math.round((part.amount / total) * 100) : 0 }));
     });
 
-    /** The consent state channel by channel, rather than the joined string. */
-    readonly channelConsents = computed(() =>
+    /**
+     * The consent state channel by channel - every channel the server records, with what this
+     * caller may do to it (`actions`: Grant / Withdraw, decided by DON).
+     */
+    readonly channelConsents = computed<ConsentChannelRow[]>(() =>
       (this.response()?.communicationPreferences ?? []).map((preference) => ({
         channel: preference.channelLabel ?? preference.channel,
+        value: preference.channel,
         state: preference.consentState,
         stateLabel: preference.consentStateLabel ?? preference.consentState,
         since: preference.effectiveAtUtc ? this.formatDate(preference.effectiveAtUtc) : '',
         recognition: preference.publicRecognitionPreference,
+        recorded: !!preference.consentId,
+        consentId: preference.consentId ?? null,
+        version: preference.version ?? null,
+        actions: preference.permittedActions ?? [],
       })),
     );
+
+    // =========================================================================================
+    // Consent - granted or withdrawn here, channel by channel
+    // =========================================================================================
+    //
+    // THE UPDATE IS MADE ON THIS PAGE. Donor 360 offered only a Manage button that opened the
+    // Consent Centre on another page; a channel is now granted or withdrawn from its own row,
+    // through the same DON endpoints the Consent Centre uses. The Consent Centre still keeps the
+    // full trail and corrections, and stays reachable from All Donors.
+
+    private readonly consentUpdate = signal<{
+      readonly action: string;
+      readonly channel: string;
+      readonly label: string;
+      readonly stateLabel: string;
+      readonly consentId: string | null;
+      readonly version: number | null;
+      readonly recognition: boolean;
+    } | null>(null);
+
+    readonly consentConfirm = computed<ConfirmDialogConfig | null>(() => {
+      const update = this.consentUpdate();
+      if (!update) return null;
+
+      const grant = update.action === 'Grant';
+      const name = this.donor().fullName || 'This donor';
+
+      return {
+        title: grant ? `Grant ${update.label} consent` : `Withdraw ${update.label} consent`,
+        message: grant
+          ? `Record that ${name} agrees to be contacted by ${update.label}.`
+          : `Record that ${name} no longer agrees to be contacted by ${update.label}. Follow-ups on this channel will be refused.`,
+        confirmLabel: grant ? 'Grant consent' : 'Withdraw consent',
+        cancelLabel: 'Cancel',
+        tone: grant ? 'primary' : 'danger',
+        requireReason: true,
+        reasonLabel: grant ? 'Purpose' : 'Reason',
+        reasonMin: 10,
+        reasonMax: 2000,
+        affectedRecord: `${update.label} · ${this.donor().reference}`,
+        beforeAfter: [
+          { label: 'Consent state', before: update.stateLabel, after: grant ? 'Granted' : 'Withdrawn' },
+        ],
+      };
+    });
+
+    openConsentUpdate(row: ConsentChannelRow, action: string): void {
+      if (!row.actions.includes(action)) return;
+
+      this.consentUpdate.set({
+        action,
+        channel: row.value,
+        label: row.channel,
+        stateLabel: row.stateLabel,
+        consentId: row.consentId,
+        version: row.version,
+        recognition: row.recognition,
+      });
+    }
+
+    onConsentCancel(): void {
+      this.consentUpdate.set(null);
+    }
+
+    onConsentConfirm(reason: string): void {
+      const update = this.consentUpdate();
+      const donorId = this.donorId();
+      this.consentUpdate.set(null);
+
+      if (!update || !donorId) return;
+
+      const grant = update.action === 'Grant';
+
+      if (!grant && !update.consentId) return;
+
+      const request$ = grant
+        ? this.api.grantConsent({
+            donorId,
+            purpose: reason,
+            channel: update.channel,
+            evidenceSource: 'Donor 360',
+            effectiveAtUtc: new Date().toISOString(),
+            publicRecognitionPreference: update.recognition,
+          })
+        : this.api.withdrawConsent(update.consentId!, { reason, expectedVersion: update.version });
+
+      request$.subscribe({
+        next: () => {
+          this.toast.show(
+            grant ? 'Consent granted' : 'Consent withdrawn',
+            grant
+              ? `${update.label} consent is recorded.`
+              : `${update.label} consent is withdrawn. No further contact is permitted on this channel.`,
+            'success',
+          );
+          this.load();
+        },
+        error: (error: unknown) =>
+          this.toast.show(grant ? 'Consent not granted' : 'Consent not withdrawn', apiErrorMessage(error), 'error'),
+      });
+    }
 
     readonly language = computed(() => this.response()?.donor?.preferredLanguage ?? '');
     readonly consentNotice = computed(() => this.response()?.consentStatus?.noticeVersion ?? '');
@@ -934,10 +1059,6 @@ export class Donor360Component {
      */
     openIdentityVerification() {
       this.router.navigate(['/app/don/donor-identity-verification'], { queryParams: { donorId: this.donorId(), leadId: this.leadId() } });
-    }
-
-    openConsentPreferences() {
-      this.router.navigate(['/app/fundraising/relationships/consent-and-preference-centre'], { queryParams: { donorId: this.donorId(), leadId: this.leadId() } });
     }
 
     openFollowUpPlanner() {

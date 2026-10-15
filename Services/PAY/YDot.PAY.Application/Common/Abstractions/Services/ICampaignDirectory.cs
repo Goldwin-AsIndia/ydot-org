@@ -76,8 +76,9 @@ public interface ICampaignDirectory
     /// THE ORGANISATION IS NOT A PARAMETER THE CALLER CHOOSES. It is resolved from the request's
     /// own host, so a visitor on one charity's donation page cannot list another's appeals.
     ///
-    /// APPROVED, SCHEDULED AND ACTIVE ONLY, and inside their own dates. A draft or unapproved
-    /// campaign has not been signed off, and one that is paused, closing or closed has been
+    /// ACTIVE ONLY, and inside their own dates - the same rule <see cref="GetDonationEligibilityAsync"/>
+    /// applies to a gift. A draft or unapproved campaign has not been signed off, an approved or
+    /// scheduled one has not gone live yet, and one that is paused, closing or closed has been
     /// stopped on purpose - taking money for any of them leaves income with nowhere legitimate to
     /// be reported.
     /// </summary>

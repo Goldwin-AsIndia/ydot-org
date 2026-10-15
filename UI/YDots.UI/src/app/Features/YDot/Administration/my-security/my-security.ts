@@ -216,6 +216,13 @@ export class MySecurityComponent {
   /** Backup codes need a confirmed factor to back up; the server says whether there is one. */
   readonly canGenerateRecoveryCodes = computed(() => this.security()?.canGenerateRecoveryCodes === true);
 
+  /**
+   * Whether another verification method can be set up: the server lists what this account can
+   * still enrol. "Create another method" was offered to somebody already using every kind, and
+   * the next screen offered them the same methods again.
+   */
+  readonly canAddMfaMethod = computed(() => (this.security()?.enrollableMfaMethods?.length ?? 0) > 0);
+
   /** The icon beside each check. Presentation only: the label and status are the server's. */
   checkIcon(key: string | null | undefined): string {
     switch (key) {

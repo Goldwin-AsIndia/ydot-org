@@ -417,7 +417,10 @@ public sealed class UserReadService(
                 passwordHealthy, hasConfirmedFactor, user.RecoveryCodesRemaining, sessions.Count),
             UserMappingConfig.RecommendNextStep(
                 user.MustChangePassword, hasConfirmedFactor, user.RecoveryCodesRemaining, sessions.Count),
-            CanGenerateRecoveryCodes: hasConfirmedFactor);
+            CanGenerateRecoveryCodes: hasConfirmedFactor,
+            EnrollableMfaMethods: UserMappingConfig.EnrollableMfaMethods(
+                methods.Where(method => method.Status == MfaMethodStatus.Active).Select(method => method.MethodType),
+                !string.IsNullOrWhiteSpace(user.Email)));
     }
 
     /// <summary>

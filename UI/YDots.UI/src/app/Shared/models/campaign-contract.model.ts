@@ -189,6 +189,8 @@ export interface CreateCampaignRequest {
   publicDescription: string;
   termsAndNotice: string;
   status?: CampaignStatus;
+  /** The purpose with the editor's formatting. `purpose` above stays the plain text. */
+  purposeHtml?: string | null;
 }
 
 /**
@@ -225,6 +227,8 @@ export interface UpdateCampaignRequest {
   reminderTime: string | null;
   publicDescription: string;
   termsAndNotice: string;
+  /** The purpose with the editor's formatting. Sent on every save; left out, the server clears it. */
+  purposeHtml?: string | null;
 }
 
 /** The body of every lifecycle transition. Which fields matter depends on the transition. */
@@ -266,6 +270,12 @@ export interface CampaignListItem {
   outstandingCheckCount: number;
   updatedAtUtc: string | null;
   version: number;
+  /** Confirmed income, refunds deducted - what the campaign has raised. */
+  raisedAmount?: number;
+  /** `raisedAmount` as a whole percentage of the target: the register's progress bar. */
+  raisedPercent?: number;
+  /** What this caller may do to the row next - the same list the detail carries. */
+  permittedActions?: string[];
 }
 
 export interface CampaignLifecycleAction {
@@ -343,6 +353,8 @@ export interface CampaignDetail {
   /** A close request awaiting a second person. At most one may be open at a time. */
   pendingCloseRequest: CampaignLifecycleAction | null;
   permittedActions: string[];
+  /** The purpose as the editor formatted it; null for one saved as plain text only. */
+  purposeHtml?: string | null;
 }
 
 export interface CampaignHistoryEntry {
