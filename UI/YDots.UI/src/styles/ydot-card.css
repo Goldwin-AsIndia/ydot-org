@@ -30,16 +30,17 @@
   --yc-bg: #ffffff;
   --yc-bg-muted: color-mix(in srgb, var(--theme-surface-tint, #edf1f4) 60%, #ffffff);            /* header bands, table heads, inset wells   (campaign-detail --fk-panel-bg) */
   --yc-border-color: var(--theme-border, #e5e8ec);        /* (--fk-border) */
-  /* NO CARD OUTLINE (by request) - a card is just white on the page's own grey, no border at all,
+  /* CARD OUTLINE (by request) - every card carries the Campaign overview's 1px border (--yc-line),
      even under a Bootstrap `.border`/`.border-0` utility (section 4 re-points those at this token
-     too). A divider BETWEEN a card's own head/body/foot is a different thing and stays. */
-  --yc-border: none;
+     too). Screens with their own card rules use `border: 1px solid var(--yc-line)`. */
+  --yc-line: color-mix(in srgb, var(--theme-primary, #375c4c) 12%, #e4e7e5);
+  --yc-border: 1px solid var(--yc-line);
   --yc-divider: 1px solid var(--yc-border-color);
 
   /* Shape — the panel's Border radius slider drives these: at the default 8px the offsets
      below land on the designed 20px / 16px, and moving the slider rounds every card in the app. */
-  --yc-radius: calc((var(--radius, 8px) + 12px) * var(--ui-scale, 1));     /* default 20px — .fk-panel / .fk-kpi */
-  --yc-radius-inner: calc((var(--radius, 8px) + 8px) * var(--ui-scale, 1)); /* default 16px — nested card (.fk-rail-card) */
+  --yc-radius: calc((var(--radius, 8px) + 2px) * var(--ui-scale, 1));     /* default 10px — .fk-panel / .fk-kpi */
+  --yc-radius-inner: calc((var(--radius, 8px) + 0px) * var(--ui-scale, 1)); /* default 8px — nested card (.fk-rail-card) */
   --yc-radius-badge: 50%;            /* icon badge is a circle (.fk-ic-bubble) */
 
   /* Spacing */
