@@ -36,7 +36,7 @@
   --gm-info: #2b6273;
   --gm-info-soft: #e7f2f5;
 
-  --gm-radius: calc(14px * var(--ui-scale, 1));
+  --gm-radius: calc(10px * var(--ui-scale, 1));
   --gm-radius-sm: calc(10px * var(--ui-scale, 1));
   --gm-ctl-h: calc(40px * var(--ui-scale, 1));
   --gm-gap: calc(16px * var(--ui-scale, 1));
@@ -62,8 +62,14 @@
      styles.css used to force max-width: none on this class - .gm-page was taken out of that list
      so this cap can apply. */
   width: 100%;
-  max-width: min(calc(1180px * var(--ui-scale, 1) * var(--page-grow, 1)), var(--page-max, 100%));
+  max-width: 1180px;
   margin-inline: auto;
+}
+/* Monitors (1920px and wider) let the column grow with the window; laptops keep the fixed 1180px. */
+@media (min-width: 1920px) {
+  .gm-page {
+    max-width: min(calc(1180px * var(--ui-scale, 1) * var(--page-grow, 1)), var(--page-max, 100%));
+  }
 }
 
 .sr-only,
@@ -2247,7 +2253,7 @@ textarea.mf-in {
   gap: calc(12px * var(--ui-scale, 1));
   padding: calc(11px * var(--ui-scale, 1)) calc(24px * var(--ui-scale, 1));
   border-top: 1px solid var(--gm-line);
-  border-radius: 0 0 calc(14px * var(--ui-scale, 1)) calc(14px * var(--ui-scale, 1));
+  border-radius: 0 0 calc(10px * var(--ui-scale, 1)) calc(10px * var(--ui-scale, 1));
   background: #ffffff;
 }
 .mf-foot-note {

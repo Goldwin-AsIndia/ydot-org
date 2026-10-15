@@ -70,6 +70,8 @@ interface ThemeSettings {
   profilePhoto: string | null;
   /** Precision type: one font stack applied to every role, without losing the per-role picks. */
   precisionFont: boolean;
+  /** Version of the Precision default; saves older than this are moved to Precision On once. */
+  precisionV?: number;
   fontsV?: number;
   /** Text-size baseline: 2 = the panel's 100% is the 116% size (older saves were relative to the old base). */
   textScaleV?: number;
@@ -78,6 +80,8 @@ interface ThemeSettings {
 const STORAGE_KEY = 'app-theme-settings';
 const FONTS_VERSION = 3;
 const TEXT_SCALE_VERSION = 2;
+/** Precision became the project's default font; bump to re-apply it over saves that had it Off. */
+const PRECISION_VERSION = 1;
 
 /** One size step is 6% of the designed size; -4 is 76%, +6 is 136%. */
 const SIZE_STEP = 0.06;
@@ -103,7 +107,8 @@ const DEFAULT_SETTINGS: ThemeSettings = {
   headingColor: '#111827',
   isDarkMode: false,
   layoutMode: 'box',
-  precisionFont: false,
+  precisionFont: true,
+  precisionV: PRECISION_VERSION,
   menuFont: 'Outfit, sans-serif',
   displayFont: 'Outfit, sans-serif',
   headingFont: 'Outfit, sans-serif',
@@ -1021,6 +1026,11 @@ export class ThemeComponent implements OnInit {
         this.settings.textScaleV = TEXT_SCALE_VERSION;
         this.settings.sizeSteps = this.cleanSteps(saved.sizeSteps, SIZE_STEP_MIN, SIZE_STEP_MAX);
         this.settings.weightSteps = this.cleanSteps(saved.weightSteps, WEIGHT_STEP_MIN, WEIGHT_STEP_MAX);
+        // One-time move to Precision as the default font; later Off/On choices are kept.
+        if (saved.precisionV !== PRECISION_VERSION) {
+          this.settings.precisionFont = true;
+          this.settings.precisionV = PRECISION_VERSION;
+        }
         // One-time move to the Outfit type system: drop fonts saved by older builds, keep the menu font.
         if (saved.fontsV !== FONTS_VERSION) {
           const { displayFont, headingFont, numberFont, otherFont } = DEFAULT_SETTINGS;

@@ -716,9 +716,11 @@ export class LeadWorkQueueComponent {
     const next = Math.min(Math.max(1, page), this.totalPages());
     if (next === this.pageIndex()) return;
     this.pageIndex.set(next);
+    // The new page starts at the top, not wherever the pager (at the bottom) left the scroll.
+    this.document.defaultView?.scrollTo({ top: 0 });
     this.load();
   }
- 
+
   protected setPageSize(size: number): void {
     if (!size || size === this.pageSize()) return;
     this.pageSize.set(size);
