@@ -1,4 +1,3 @@
-using System.Text.Json;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using YDots.CAM.Application.Common.Abstractions.Services;
@@ -28,14 +27,23 @@ namespace YDots.CAM.API.Controllers;
 /// own route through the gateway to say the same thing.
 ///
 /// TWO PERMISSIONS OF THEIR OWN (see <see cref="PermissionCodes.WhatsAppView"/>): reading needs
-/// <c>cam.whatsapp.view</c>, and anything that can cost money - an upload, a broadcast, a retry -
-/// needs <c>cam.whatsapp.operate</c>. Only the Organisation Admin holds them unless they grant them.
+/// <c>cam.whatsapp.view</c>, and anything that can cost money or change something - an upload, a
+/// send, a retry, a recipient group - needs <c>cam.whatsapp.operate</c>. Only the Organisation
+/// Admin holds them unless they grant them.
+///
+/// THE WORKFLOW (since 15 October 2026): an upload VALIDATES numbers in bulk (CheckNumber.ai bills
+/// a check of 500 numbers as much as a check of two); the validated numbers wait in a pool; a
+/// person filters it, picks the ten or fifty to message (and may keep them as a tagged group),
+/// fills a template, reviews what will happen and sends; the send log then traces every message
+/// back to the check that verified its number. Nothing is ever messaged because a file arrived.
 /// </summary>
 [Route("api/v1/whatsapp")]
 [Authorize(Policy = PolicyNames.TenantContextRequired)]
 public sealed class WhatsAppController(
     WhatsAppQueryHandler queries,
     WhatsAppCommandHandler commands,
+    WhatsAppGroupQueryHandler groupQueries,
+    WhatsAppGroupCommandHandler groupCommands,
     ILogger<WhatsAppController> logger) : ApiControllerBase
 {
     /// <summary>
@@ -106,21 +114,6 @@ public sealed class WhatsAppController(
                 Error.Validation("Choose a .txt, .csv, .xls or .xlsx file to upload.")));
         }
 
-        IReadOnlyDictionary<string, string>? watiParameters = null;
-
-        if (!string.IsNullOrWhiteSpace(form.WatiParameters))
-        {
-            try
-            {
-                watiParameters = JsonSerializer.Deserialize<Dictionary<string, string>>(form.WatiParameters);
-            }
-            catch (JsonException)
-            {
-                return FromResult(Result.Failure<CheckJobUploadResponse>(Error.Validation(
-                    "watiParameters must be a JSON object of text values, for example {\"image_url\": \"https://example.org/picture.jpg\"}.")));
-            }
-        }
-
         logger.LogInformation(
             "WhatsApp list upload received: {FileName}, {Bytes} bytes, campaign {CampaignId}.",
             form.File.FileName, form.File.Length, form.CampaignId);
@@ -133,11 +126,7 @@ public sealed class WhatsAppController(
                 form.File.FileName,
                 buffer.ToArray(),
                 form.CampaignId,
-                form.ForceRecheck,
-                form.RunWati,
-                form.WatiTemplateName,
-                form.WatiBroadcastName,
-                watiParameters),
+                form.ForceRecheck),
             cancellationToken);
 
         if (result.IsFailure)
@@ -318,24 +307,125 @@ public sealed class WhatsAppController(
             await commands.HandleAsync(new RefreshWatiTemplatesCommand(), cancellationToken),
             "The integration worker will refresh the template list from WATI.");
 
-    /// <summary>The organisation's numbers that are on WhatsApp - who a broadcast can be sent to.</summary>
-    [HttpGet("wati/recipients")]
-    [HasPermission(PermissionCodes.WhatsAppView)]
-    [ProducesResponseType(typeof(ApiResponse<IReadOnlyList<WatiRecipientView>>), StatusCodes.Status200OK)]
-    public async Task<IActionResult> GetRecipientsAsync(CancellationToken cancellationToken) =>
-        FromResult(await queries.HandleAsync(new GetWatiRecipientsQuery(), cancellationToken));
-
-    /// <summary>Every broadcast: those sent from the Wati page and those that followed a check automatically.</summary>
-    [HttpGet("wati/broadcasts")]
-    [HasPermission(PermissionCodes.WhatsAppView)]
-    [ProducesResponseType(typeof(ApiResponse<IReadOnlyList<WatiBroadcastView>>), StatusCodes.Status200OK)]
-    public async Task<IActionResult> GetBroadcastsAsync(CancellationToken cancellationToken) =>
-        FromResult(await queries.HandleAsync(new GetWatiBroadcastsQuery(), cancellationToken));
+    // ---- 1. The selection pool --------------------------------------------------------------
 
     /// <summary>
-    /// Queues a broadcast for the worker. The worker applies its own safeguards before a single
-    /// message leaves - the allow-list, the cap on recipients per job, "already sent this
-    /// template" - and records the reason for every recipient it leaves out.
+    /// The validated WhatsApp numbers a send can be picked from - one page, filtered and searched
+    /// on the server (check, country, group, tag, messaging history), with the options and counts
+    /// of every filter.
+    /// </summary>
+    [HttpGet("wati/recipients")]
+    [HasPermission(PermissionCodes.WhatsAppView)]
+    [ProducesResponseType(typeof(ApiResponse<WatiRecipientSearchResponse>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> SearchRecipientsAsync(
+        [FromQuery] WatiRecipientFilter filter, CancellationToken cancellationToken) =>
+        FromResult(await queries.HandleAsync(new SearchWatiRecipientsQuery(filter), cancellationToken));
+
+    /// <summary>"Select all that match": the matching numbers up to <paramref name="limit"/>, never more than one send may hold.</summary>
+    [HttpGet("wati/recipients/matching")]
+    [HasPermission(PermissionCodes.WhatsAppView)]
+    [ProducesResponseType(typeof(ApiResponse<WatiMatchingRecipients>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetMatchingRecipientsAsync(
+        [FromQuery] WatiRecipientFilter filter, [FromQuery] int limit, CancellationToken cancellationToken) =>
+        FromResult(await queries.HandleAsync(new GetMatchingWatiRecipientsQuery(filter, limit), cancellationToken));
+
+    // ---- 2. Recipient groups -------------------------------------------------------------------
+
+    /// <summary>The organisation's recipient groups, with their tags, campaign and live member figures.</summary>
+    [HttpGet("wati/groups")]
+    [HasPermission(PermissionCodes.WhatsAppView)]
+    [ProducesResponseType(typeof(ApiResponse<IReadOnlyList<WhatsAppGroupView>>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetGroupsAsync(CancellationToken cancellationToken) =>
+        FromResult(await groupQueries.HandleAsync(new GetWhatsAppGroupsQuery(), cancellationToken));
+
+    /// <summary>One group with its members: each number, the check it was picked from, and whether it is still on WhatsApp.</summary>
+    [HttpGet("wati/groups/{groupId:guid}")]
+    [HasPermission(PermissionCodes.WhatsAppView)]
+    [ProducesResponseType(typeof(ApiResponse<WhatsAppGroupDetail>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetGroupAsync(Guid groupId, CancellationToken cancellationToken) =>
+        FromResult(await groupQueries.HandleAsync(new GetWhatsAppGroupQuery(groupId), cancellationToken));
+
+    /// <summary>Keeps a selection as a named, tagged group. Only the organisation's WhatsApp-verified numbers are kept.</summary>
+    [HttpPost("wati/groups")]
+    [HasPermission(PermissionCodes.WhatsAppOperate)]
+    [ProducesResponseType(typeof(ApiResponse<WhatsAppGroupChangeResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> CreateGroupAsync(
+        [FromBody] CreateWhatsAppGroupRequest request, CancellationToken cancellationToken)
+    {
+        var result = await groupCommands.HandleAsync(new CreateWhatsAppGroupCommand(request), cancellationToken);
+        return FromResult(result, result.IsSuccess ? result.Value!.Message : null);
+    }
+
+    /// <summary>Renames a group, or changes its description, campaign or tags.</summary>
+    [HttpPut("wati/groups/{groupId:guid}")]
+    [HasPermission(PermissionCodes.WhatsAppOperate)]
+    [ProducesResponseType(typeof(ApiResponse<WhatsAppGroupChangeResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> UpdateGroupAsync(
+        Guid groupId, [FromBody] UpdateWhatsAppGroupRequest request, CancellationToken cancellationToken)
+    {
+        var result = await groupCommands.HandleAsync(new UpdateWhatsAppGroupCommand(groupId, request), cancellationToken);
+        return FromResult(result, result.IsSuccess ? result.Value!.Message : null);
+    }
+
+    /// <summary>Adds numbers (usually the current selection) to a group.</summary>
+    [HttpPost("wati/groups/{groupId:guid}/members")]
+    [HasPermission(PermissionCodes.WhatsAppOperate)]
+    [ProducesResponseType(typeof(ApiResponse<WhatsAppGroupChangeResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> AddGroupMembersAsync(
+        Guid groupId, [FromBody] AddWhatsAppGroupMembersRequest request, CancellationToken cancellationToken)
+    {
+        var result = await groupCommands.HandleAsync(new AddWhatsAppGroupMembersCommand(groupId, request), cancellationToken);
+        return FromResult(result, result.IsSuccess ? result.Value!.Message : null);
+    }
+
+    /// <summary>Removes numbers from a group. A POST because the numbers travel in the body.</summary>
+    [HttpPost("wati/groups/{groupId:guid}/members/remove")]
+    [HasPermission(PermissionCodes.WhatsAppOperate)]
+    [ProducesResponseType(typeof(ApiResponse<WhatsAppGroupChangeResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> RemoveGroupMembersAsync(
+        Guid groupId, [FromBody] RemoveWhatsAppGroupMembersRequest request, CancellationToken cancellationToken)
+    {
+        var result = await groupCommands.HandleAsync(new RemoveWhatsAppGroupMembersCommand(groupId, request), cancellationToken);
+        return FromResult(result, result.IsSuccess ? result.Value!.Message : null);
+    }
+
+    /// <summary>Deletes a group. The sends made from it keep its name in the send log.</summary>
+    [HttpDelete("wati/groups/{groupId:guid}")]
+    [HasPermission(PermissionCodes.WhatsAppOperate)]
+    [ProducesResponseType(typeof(ApiResponse<WhatsAppGroupChangeResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> DeleteGroupAsync(Guid groupId, CancellationToken cancellationToken)
+    {
+        var result = await groupCommands.HandleAsync(new DeleteWhatsAppGroupCommand(groupId), cancellationToken);
+        return FromResult(result, result.IsSuccess ? result.Value!.Message : null);
+    }
+
+    // ---- 3 and 4. Review, then send ---------------------------------------------------------------
+
+    /// <summary>
+    /// What a send would do, number by number - who will be messaged, who skipped and why, each
+    /// message as it will read - and what still stops it. NOTHING IS QUEUED: a POST only because
+    /// the selection travels in the body.
+    /// </summary>
+    [HttpPost("wati/broadcasts/review")]
+    [HasPermission(PermissionCodes.WhatsAppView)]
+    [ProducesResponseType(typeof(ApiResponse<SendReviewResponse>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> ReviewSendAsync(
+        [FromBody] ReviewSendRequest request, CancellationToken cancellationToken) =>
+        FromResult(await queries.HandleAsync(new ReviewWatiSendQuery(request.ToSendRequest()), cancellationToken));
+
+    /// <summary>
+    /// Queues a send of the SELECTED numbers for the worker - refused when the selection is larger
+    /// than one send may be. The worker applies its own safeguards before a single message leaves
+    /// (the allow-list, the cap per send, "already sent this template") and records the reason for
+    /// every number it leaves out.
     /// </summary>
     [HttpPost("wati/broadcasts")]
     [HasPermission(PermissionCodes.WhatsAppOperate)]
@@ -345,13 +435,62 @@ public sealed class WhatsAppController(
         [FromBody] SendBroadcastRequest request, CancellationToken cancellationToken)
     {
         logger.LogInformation(
-            "WhatsApp broadcast {BroadcastName} ({TemplateName}) requested for {Recipients} recipient(s).",
-            request.BroadcastName, request.TemplateName, request.Recipients.Count);
+            "WhatsApp send {BroadcastName} ({TemplateName}) requested for {Recipients} selected number(s).",
+            request.BroadcastName, request.TemplateName, request.SelectedRecipients().Count);
 
         return FromResult(
             await commands.HandleAsync(new SendWatiBroadcastCommand(request), cancellationToken),
-            "The broadcast is with the integration worker.");
+            "The send is with the integration worker.");
     }
+
+    // ---- 5. The send log ------------------------------------------------------------------------------
+
+    /// <summary>The send log: one page of sends with their selection, group, tags and outcome, and the options of its filters.</summary>
+    [HttpGet("wati/broadcasts")]
+    [HasPermission(PermissionCodes.WhatsAppView)]
+    [ProducesResponseType(typeof(ApiResponse<WatiBroadcastSearchResponse>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> SearchBroadcastsAsync(
+        [FromQuery] WatiBroadcastFilter filter, CancellationToken cancellationToken) =>
+        FromResult(await queries.HandleAsync(new SearchWatiBroadcastsQuery(filter), cancellationToken));
+
+    /// <summary>
+    /// The send log as a CSV: one row per selected number of every matching send - template,
+    /// values, group, the check that verified the number, its CheckNumber.ai task, and the outcome.
+    /// Recorded in the audit trail with the file's reference.
+    /// </summary>
+    [HttpGet("wati/broadcasts/export")]
+    [HasPermission(PermissionCodes.WhatsAppView)]
+    [ProducesResponseType(typeof(FileContentResult), StatusCodes.Status200OK)]
+    public async Task<IActionResult> ExportBroadcastsAsync(
+        [FromQuery] WatiBroadcastFilter filter, CancellationToken cancellationToken) =>
+        FileFromResult(await queries.HandleAsync(new ExportWatiBroadcastsQuery(filter, null), cancellationToken));
+
+    /// <summary>One send in full: what was chosen, how the template was filled, and what became of every number.</summary>
+    [HttpGet("wati/broadcasts/{broadcastId:guid}")]
+    [HasPermission(PermissionCodes.WhatsAppView)]
+    [ProducesResponseType(typeof(ApiResponse<WatiBroadcastDetail>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetBroadcastAsync(Guid broadcastId, CancellationToken cancellationToken) =>
+        FromResult(await queries.HandleAsync(new GetWatiBroadcastQuery(broadcastId), cancellationToken));
+
+    /// <summary>One send as a CSV, every selected number on its own row.</summary>
+    [HttpGet("wati/broadcasts/{broadcastId:guid}/export")]
+    [HasPermission(PermissionCodes.WhatsAppView)]
+    [ProducesResponseType(typeof(FileContentResult), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> ExportBroadcastAsync(Guid broadcastId, CancellationToken cancellationToken) =>
+        FileFromResult(await queries.HandleAsync(new ExportWatiBroadcastsQuery(new WatiBroadcastFilter(), broadcastId), cancellationToken));
+
+    /// <summary>Puts a send's messages that failed for a reason a retry can fix back in the queue. Nobody new is added.</summary>
+    [HttpPost("wati/broadcasts/{broadcastId:guid}/retry")]
+    [HasPermission(PermissionCodes.WhatsAppOperate)]
+    [ProducesResponseType(typeof(ApiResponse<CommandAcceptedResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> RetryBroadcastAsync(Guid broadcastId, CancellationToken cancellationToken) =>
+        FromResult(
+            await commands.HandleAsync(new RetryWatiBroadcastCommand(broadcastId), cancellationToken),
+            "The integration worker will send the failed messages again.");
 
     /// <summary>The delivery report, newest first.</summary>
     [HttpGet("wati/messages")]
@@ -394,17 +533,9 @@ public sealed class UploadCheckFileForm
     /// <summary>"Check them again anyway": pay to check numbers that already have a saved answer.</summary>
     public bool ForceRecheck { get; set; }
 
-    /// <summary>False = check only. Leave it out to follow the worker's Pipeline settings.</summary>
-    public bool? RunWati { get; set; }
-
-    /// <summary>A WATI template for this upload's automatic message; leave it out for the worker's default.</summary>
-    public string? WatiTemplateName { get; set; }
-
-    /// <summary>A WATI broadcast name for this upload; leave it out for the worker's default.</summary>
-    public string? WatiBroadcastName { get; set; }
-
-    /// <summary>Template values for this upload, as a JSON object - for example {"image_url": "https://..."}.</summary>
-    public string? WatiParameters { get; set; }
+    // runWati, watiTemplateName, watiBroadcastName and watiParameters were retired on 15 October
+    // 2026 with the automatic message that followed a check: an upload only validates numbers. A
+    // client that still sends them is not refused - unknown form fields are simply not bound.
 }
 
 /// <summary>Why a job is being stopped. Optional; kept in the audit trail.</summary>

@@ -244,7 +244,7 @@
                   <td class="cell-type">{{ r.type }}</td>
                   <!-- Primary name (read-only, 4.4.2) -->
                   <td class="cell-name">{{ r.name }}</td>
-                  <td class="col-amount cell-amount">₹{{ formatAmount(r.amount) }}</td>
+                  <td class="col-amount cell-amount">{{ formatAmount(r.amount) }}</td>
                   <!-- Updated time (read-only, 4.4.2) -->
                   <td class="cell-date">{{ r.updatedLabel }}</td>
                   <!-- Status (catalogue value, 4.4.2) -->
@@ -388,7 +388,7 @@
 
           <!-- Amount range (4.4.1) -->
           <div class="field" [class.field-invalid]="amountRangeInvalid()">
-            <label class="field-label" for="amount-min">Amount Range (₹)</label>
+            <label class="field-label" for="amount-min">Amount Range ({{ currencyMark() }})</label>
             <div class="range-inputs">
               <input id="amount-min" type="number" min="0" class="control" placeholder="Min amount"
                      [ngModel]="amountMin()" (ngModelChange)="amountMin.set($event)" aria-label="Minimum amount" />

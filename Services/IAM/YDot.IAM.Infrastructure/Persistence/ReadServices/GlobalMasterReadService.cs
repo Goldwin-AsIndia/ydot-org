@@ -5,6 +5,7 @@ using YDot.IAM.Application.Common.Abstractions.Security;
 using YDot.IAM.Application.Common.Models;
 using YDot.IAM.Application.Features.GlobalMasters.DTOs;
 using YDot.IAM.Application.Features.GlobalMasters.Mappings;
+using YDot.IAM.Application.Features.MoneyFormat;
 using YDot.IAM.Application.Features.ReferenceData.Queries;
 using YDot.IAM.Domain.Common;
 using YDot.IAM.Domain.Entities;
@@ -887,6 +888,18 @@ public sealed class GlobalMasterReadService(
         return new GeoLookupResponse(
             countries, states, cities, currencies, zones, isFiltered, languages, languagesFiltered);
     }
+
+    public async Task<IReadOnlyList<CurrencyFormatResponse>> ListCurrencyFormatsAsync(
+        CancellationToken cancellationToken) =>
+        await context.Currencies
+            .AsNoTracking()
+            .IgnoreQueryFilters()
+            .Where(currency => currency.TenantId == null)
+            .OrderBy(currency => currency.SortOrder)
+            .ThenBy(currency => currency.Code)
+            .Select(currency => new CurrencyFormatResponse(
+                currency.Code, currency.Symbol, currency.SymbolPosition, currency.DecimalPlaces))
+            .ToListAsync(cancellationToken);
 
     // =====================================================================================
     // Shared query helpers

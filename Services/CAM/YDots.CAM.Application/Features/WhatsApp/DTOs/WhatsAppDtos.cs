@@ -24,6 +24,16 @@ public sealed record WhatsAppWorkerStatus(
     DateTimeOffset? LastHeartbeatAtUtc);
 
 /// <summary>The worker's effective, non-secret settings, as it published them in its heartbeat.</summary>
+/// <param name="AutoSendWati">Always false since 15 October 2026: a check never messages anybody by itself.</param>
+/// <param name="MaxRecipientsPerJob">The worker's cap per send, as it published it (0 = none).</param>
+/// <param name="MaxRecipientsPerSend">
+/// The most numbers one selection may hold - the worker's cap, or this server's own ceiling
+/// (WhatsAppIntegration:MaxRecipientsPerSend) when the worker sets none. The page stops a
+/// selection here and the server refuses a larger one.
+/// </param>
+/// <param name="MinimumNumbersPerTask">The worker refuses a check with fewer numbers to pay for than this.</param>
+/// <param name="BillableMinimumNumbers">How many numbers CheckNumber.ai's minimum charge pays for (500): a smaller check costs the same.</param>
+/// <param name="RetryableFailureCodes">The failure codes "retry this send" puts back in the queue.</param>
 public sealed record WhatsAppSettingsView(
     bool CheckNumberEnabled,
     bool CheckNumberConfigured,
@@ -44,7 +54,15 @@ public sealed record WhatsAppSettingsView(
     int MaxRecipientsPerJob,
     bool AllowListActive,
     int AllowListSize,
-    int BatchSize);
+    int BatchSize,
+    int MaxRecipientsPerSend,
+    int MinimumNumbersPerTask,
+    int BillableMinimumNumbers,
+    bool SendToUnverifiedNumbers,
+    bool SkipAlreadyMessagedNumbers,
+    int DuplicateWindowDays,
+    IReadOnlyList<string> RetryableFailureCodes,
+    [property: System.Text.Json.Serialization.JsonIgnore] IReadOnlyList<string> AllowListFingerprints);
 
 /// <summary>The organisation's figures.</summary>
 /// <param name="NumbersVerified">Distinct numbers this organisation has an answer for.</param>
@@ -148,14 +166,31 @@ public sealed record CheckJobListItem(
     bool CanCancel,
     bool CancelRequested);
 
-/// <summary>A job's page: header, CheckNumber.ai tasks, timeline, events and the WATI outcome.</summary>
+/// <summary>A job's page: header, CheckNumber.ai tasks, timeline, events and what was sent from it.</summary>
+/// <param name="Wati">The automatic send an OLDER check made by itself; null for every check since 15 October 2026.</param>
+/// <param name="Sends">The sends people made with numbers picked from this check - the audit trail from a check to its messages.</param>
 public sealed record CheckJobDetailResponse(
     CheckJobListItem Job,
     IReadOnlyList<CheckNumberTaskView> Tasks,
     IReadOnlyList<JobTimelineEntry> Timeline,
     IReadOnlyList<JobEventView> Events,
     WatiJobSummary? Wati,
-    JobDownloads Downloads);
+    JobDownloads Downloads,
+    IReadOnlyList<CheckJobSendView> Sends);
+
+/// <summary>A send that messaged numbers picked from a check.</summary>
+/// <param name="FromThisCheck">How many of the send's messages were numbers picked from this check.</param>
+/// <param name="AcceptedFromThisCheck">Of those, how many WATI accepted.</param>
+public sealed record CheckJobSendView(
+    Guid Id,
+    string Reference,
+    string Name,
+    string TemplateName,
+    string Status,
+    DateTimeOffset CreatedAtUtc,
+    string? RequestedByName,
+    int FromThisCheck,
+    int AcceptedFromThisCheck);
 
 public sealed record CheckNumberTaskView(
     string? TaskId,
@@ -234,6 +269,9 @@ public sealed record JobDownloads(bool Original, bool Submitted, bool Results, b
 /// <summary>One distinct number of a job, as the report table shows it.</summary>
 /// <param name="WhatsApp">yes | no | unknown.</param>
 /// <param name="Status">checked | unverified | saved (answered from an earlier check).</param>
+/// <param name="ContactName">The name the file gave beside the number.</param>
+/// <param name="WatiStatus">What became of the newest message sent to this number from this check (a person's send, or an older automatic one).</param>
+/// <param name="LastSendReference">That send's reference (WAT-...), when the number was messaged from this check.</param>
 public sealed record CheckJobResultRow(
     string Number,
     string Iso,
@@ -245,7 +283,9 @@ public sealed record CheckJobResultRow(
     int Line,
     string Raw,
     string? WatiStatus,
-    string? WatiSkipReason);
+    string? WatiSkipReason,
+    string? ContactName,
+    string? LastSendReference);
 
 /// <summary>A line of the file with no usable number.</summary>
 public sealed record InvalidLineView(string Sheet, int Line, string Raw, string Reason);
@@ -259,6 +299,11 @@ public sealed record DownloadFile(string FileName, string ContentType, byte[] Co
 /// <param name="Variables">The parameter names, in order.</param>
 /// <param name="Defaults">Pre-filled values by parameter name.</param>
 /// <param name="Source">Wati (copied from WATI) or Configuration (declared in the worker settings).</param>
+/// <param name="HeaderFormat">IMAGE, VIDEO, DOCUMENT or TEXT when the template has a header; null when it has none (or WATI did not say).</param>
+/// <param name="HeaderText">A text header, with its {{placeholders}}.</param>
+/// <param name="MediaVariable">The parameter that carries the header's picture or file (e.g. image_url), so the preview can show it.</param>
+/// <param name="Footer">The template's footer line.</param>
+/// <param name="Buttons">The labels of its buttons ("Donate Now").</param>
 public sealed record WatiTemplateView(
     string Name,
     string Label,
@@ -269,21 +314,42 @@ public sealed record WatiTemplateView(
     string Source,
     string? Status,
     string? Language,
-    DateTimeOffset? LastSyncedAtUtc);
+    DateTimeOffset? LastSyncedAtUtc,
+    string? HeaderFormat,
+    string? HeaderText,
+    string? MediaVariable,
+    string? Footer,
+    IReadOnlyList<string> Buttons);
 
-/// <summary>One number in the "ready in Wati" pool.</summary>
+/// <summary>
+/// One number of the organisation's selection pool: a check found it on WhatsApp and the newest
+/// answer still says so.
+/// </summary>
+/// <param name="JobId">The check it is offered from: the one the list is filtered by, otherwise the newest that verified it.</param>
+/// <param name="ContactName">The name the file gave beside the number (the newest the organisation has).</param>
+/// <param name="MessagesSent">Messages WATI has accepted for this number, across every send of the organisation.</param>
+/// <param name="Groups">The recipient groups it belongs to.</param>
 public sealed record WatiRecipientView(
     string Number,
     string Iso,
     string Country,
+    string? ContactName,
     DateTimeOffset CheckedAtUtc,
     Guid JobId,
     string JobNumber,
     string FileName,
     DateTimeOffset? LastMessagedAtUtc,
-    string? LastTemplateName);
+    string? LastTemplateName,
+    int MessagesSent,
+    IReadOnlyList<string> Groups);
 
-/// <summary>One WATI job, shown as a "broadcast".</summary>
+/// <summary>One WATI job, shown as a "send" in the send log.</summary>
+/// <param name="Recipients">Messages meant for somebody and attempted (the skipped are counted apart).</param>
+/// <param name="RequestedCount">Numbers the person selected.</param>
+/// <param name="ExcludedCount">Selected numbers that never became a message (not checked by this organisation, not a number, selected twice).</param>
+/// <param name="SourceJobs">The checks the numbers were picked from (INT-... numbers).</param>
+/// <param name="RetryableFailures">Failed messages a retry would put back in the queue.</param>
+/// <param name="PermittedActions">What the caller may do with it now: retry, export.</param>
 public sealed record WatiBroadcastView(
     Guid Id,
     string Reference,
@@ -302,7 +368,16 @@ public sealed record WatiBroadcastView(
     Guid? IntegrationJobId,
     string? JobNumber,
     string? RequestedByName,
-    string? ErrorMessage);
+    string? ErrorMessage,
+    int RequestedCount,
+    int ExcludedCount,
+    string? CampaignName,
+    Guid? RecipientGroupId,
+    string? RecipientGroupName,
+    IReadOnlyList<string> Tags,
+    IReadOnlyList<string> SourceJobs,
+    int RetryableFailures,
+    IReadOnlyList<string> PermittedActions);
 
 /// <summary>One message of the delivery report.</summary>
 /// <param name="Status">PENDING | SENT | DELIVERED | READ | REPLIED | FAILED | SKIPPED.</param>
@@ -331,16 +406,46 @@ public sealed record WatiMessageView(
     string? SkipReason,
     bool TimesObserved,
     string LocalMessageId,
-    Guid? CampaignId);
+    Guid? CampaignId,
+    string? ContactName,
+    string? SourceJobNumber,
+    string? CheckNumberTaskId);
 
-/// <summary>A broadcast requested from the Wati page.</summary>
+/// <summary>
+/// A send requested from the Wati page: the selected numbers, the template and how to fill it.
+///
+/// ONLY THE SELECTION IS SENT TO. <paramref name="Selection"/> lists each number with the check it
+/// was picked from; <paramref name="Recipients"/> is the older plain list, still accepted.
+/// </summary>
+/// <param name="Values">Template values - the same for every recipient, and the fallback for a bound parameter the recipient has nothing for.</param>
+/// <param name="RecipientGroupId">The recipient group the selection came from, when it did.</param>
+/// <param name="Tags">Labels for the send.</param>
+/// <param name="Bindings">Template parameters filled per recipient: {"name": "name", "source": "contactName"}.</param>
 public sealed record SendBroadcastRequest(
     string TemplateName,
     string? TemplateLabel,
     string BroadcastName,
     IReadOnlyDictionary<string, string>? Values,
-    IReadOnlyList<string> Recipients,
-    Guid? CampaignId);
+    IReadOnlyList<string>? Recipients,
+    Guid? CampaignId,
+    IReadOnlyList<SelectedRecipientRequest>? Selection = null,
+    Guid? RecipientGroupId = null,
+    IReadOnlyList<string>? Tags = null,
+    IReadOnlyList<ParameterBindingRequest>? Bindings = null)
+{
+    /// <summary>The selection, whichever way it was sent.</summary>
+    public IReadOnlyList<SelectedRecipientRequest> SelectedRecipients() =>
+        Selection is { Count: > 0 }
+            ? Selection
+            : (Recipients ?? []).Select(number => new SelectedRecipientRequest(number, null)).ToList();
+}
+
+/// <summary>One selected number and the check it was picked from.</summary>
+public sealed record SelectedRecipientRequest(string Number, Guid? SourceJobId);
+
+/// <summary>A template parameter filled from the recipient.</summary>
+/// <param name="Source">contactName (the name in the file) or phoneNumber.</param>
+public sealed record ParameterBindingRequest(string Name, string Source);
 
 /// <summary>A request handed to the worker.</summary>
 public sealed record CommandAcceptedResponse(Guid CommandId, string Reference, string Status);

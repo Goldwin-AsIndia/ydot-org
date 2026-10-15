@@ -27,7 +27,7 @@
   <div class="pr-tile1 pr-tile-gold">
     <div class="pr-tile-body">
       <span class="pr-tile-label">Total Amount</span>
-      <span class="pr-tile-value" style="color: var(--tile-accent-strong, var(--pr-ink))">₹{{ totalAmount().toLocaleString('en-IN') }}</span>
+      <span class="pr-tile-value" style="color: var(--tile-accent-strong, var(--pr-ink))">{{ formatTotal(totalAmount()) }}</span>
       <span class="pr-tile-note">In selected scope</span>
     </div>
     <span class="pr-tile-icon pr-tile-icon-gold">
@@ -327,7 +327,7 @@
                   <td class="pr-col-center d-none d-xxl-table-cell" data-label="Donor name">{{ r.donorName }}</td>
                   <td class="pr-col-center d-none d-xl-table-cell" data-label="Email">{{ r.donorEmail || '—' }}</td>
                   <td class="pr-col-center d-none d-xs-table-cell" data-label="Campaign">{{ r.campaignName || '—' }}</td>
-                  <td class="pr-col-center d-none d-xxl-table-cell" data-label="Amount">{{ r.currency }} {{ formatAmount(r.amount) }}</td>
+                  <td class="pr-col-center d-none d-xxl-table-cell" data-label="Amount">{{ formatAmount(r.amount, r.currency) }}</td>
                   <td class="pr-col-center d-none d-xxl-table-cell" data-label="Payment status">
                     @switch (r.paymentStatus) {
                       @case ('Success') {
@@ -439,7 +439,7 @@
             <div><dt>Donor name</dt><dd>{{ r.donorName }}</dd></div>
             <div><dt>E-mail</dt><dd>{{ r.donorEmail || '—' }}</dd></div>
             <div><dt>Campaign</dt><dd>{{ r.campaignName || '—' }}</dd></div>
-            <div><dt>Amount</dt><dd>{{ r.currency }} {{ formatAmount(r.amount) }}</dd></div>
+            <div><dt>Amount</dt><dd>{{ formatAmount(r.amount, r.currency) }}</dd></div>
             <div><dt>Payment status</dt><dd><span class="pr-badge" [class]="paymentStatusClass(r.paymentStatus)">{{ r.paymentStatus }}</span></dd></div>
             <div><dt>Received at</dt><dd>{{ r.receivedTime }}</dd></div>
             <div><dt>Receipt status</dt><dd><span class="pr-badge" [class]="receiptStatusClass(r.receiptStatus)">{{ r.receiptStatus }}</span></dd></div>
@@ -508,7 +508,7 @@
           <dl class="pr-kv">
             <div><dt>Donor</dt><dd>{{ e.donorName }}</dd></div>
             <div><dt>Campaign</dt><dd>{{ e.campaignName }}</dd></div>
-            <div><dt>Amount</dt><dd>{{ e.currency }} {{ formatAmount(e.amount) }}</dd></div>
+            <div><dt>Amount</dt><dd>{{ formatAmount(e.amount, e.currency) }}</dd></div>
             <div><dt>Payment status</dt><dd><span class="pr-badge" [class]="paymentStatusClass(e.paymentStatus)">{{ e.paymentStatus }}</span></dd></div>
             <div><dt>Received at</dt><dd>{{ e.receivedTime }}</dd></div>
           </dl>

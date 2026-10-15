@@ -11,6 +11,7 @@ import { AuthTokenService } from '../../../../Shared/services/auth-token.service
 import { PageHeader } from '../../../../Shared/components/page-header/page-header';
 
 import { RowsPerPage } from '../../../../Shared/components/rows-per-page/rows-per-page';
+import { formatMoney } from '../../../../Shared/services/money-format';
 /**
  * The three outcomes a payment event can settle in. Unlike the old Payment Event Queue (which
  * only ever showed Fail/Pending) and the old Receipt Register (which only ever showed
@@ -1130,9 +1131,15 @@ export class PaymentEventQueueComponent {
     }
   }
 
-  protected formatAmount(amount: number | null): string {
+  /** A payment's amount, exact to the paisa - this is the money register. */
+  protected formatAmount(amount: number | null, currency?: string | null): string {
     if (amount === null) return '—';
-    return amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    return formatMoney(amount, currency, { style: 'exact' });
+  }
+
+  /** The tile's total, whole: a headline figure. */
+  protected formatTotal(amount: number): string {
+    return formatMoney(amount ?? 0, null, { style: 'whole' });
   }
 
   private formatDateTime(iso: string): string {

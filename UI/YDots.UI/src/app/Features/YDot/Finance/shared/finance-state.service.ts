@@ -1,5 +1,6 @@
 import { Injectable, computed, effect, signal } from '@angular/core';
 import { WorkbenchRecord, StatusBadge, SettlementBatchSummary, SettlementLine, OfflineDonationDraft, ReconciliationLedgerRow, FinanceExceptionRecord, ExceptionType, ReversalRecord } from './finance.model';
+import { formatMoney } from '../../../../Shared/services/money-format';
 
 
 
@@ -462,7 +463,7 @@ export class FinanceStateService {
     if (!batchRef) return { ok: false, reason: 'No linked settlement line to split.' };
     const original = this.settlementBatches()[batchRef].lines.find((l) => l.lineReference === lineRef)!;
     if (!(splitAmount > 0 && splitAmount < original.net)) {
-      return { ok: false, reason: `Enter a split amount between ₹1 and ₹${(original.net - 1).toLocaleString('en-IN')}.` };
+      return { ok: false, reason: `Enter a split amount between ${formatMoney(1)} and ${formatMoney(original.net - 1)}.` };
     }
     const ratio = splitAmount / original.net;
     const partA: SettlementLine = {

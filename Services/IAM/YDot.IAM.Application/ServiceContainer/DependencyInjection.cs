@@ -1,6 +1,7 @@
 ﻿using FluentValidation;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using YDot.IAM.Application.Common.Formatting;
 using YDot.IAM.Application.Common.Settings;
 using YDot.IAM.Application.Features.Authentication.Commands.AcceptInvitation;
 using YDot.IAM.Application.Features.Authentication.Commands.MfaVerification;
@@ -40,6 +41,7 @@ using YDot.IAM.Application.Features.Users.Commands.UserAccess;
 using YDot.IAM.Application.Features.Users.Commands.UserLifecycle;
 using YDot.IAM.Application.Features.Users.Commands.UserSecurity;
 using YDot.IAM.Application.Features.Users.Queries.UserQueries;
+using YDot.IAM.Application.Features.MoneyFormat;
 
 namespace YDot.IAM.Application.ServiceContainer;
 
@@ -70,6 +72,13 @@ public static class DependencyInjection
         services.Configure<PaymentGatewaySettings>(
             configuration.GetSection(PaymentGatewaySettings.SectionName));
 
+        // The platform's money format, installed into MoneyText once so every amount and count
+        // this service writes is grouped and marked the same way as the other three services'.
+        var moneyFormat = configuration.GetSection(MoneyFormatSettings.SectionName).Get<MoneyFormatSettings>()
+                          ?? new MoneyFormatSettings();
+        services.Configure<MoneyFormatSettings>(configuration.GetSection(MoneyFormatSettings.SectionName));
+        MoneyText.UseSettings(moneyFormat);
+
         // ---- FluentValidation ---------------------------------------------------------------
         services.AddValidatorsFromAssembly(typeof(DependencyInjection).Assembly, includeInternalTypes: true);
 
@@ -81,6 +90,9 @@ public static class DependencyInjection
         services.AddScoped<PasswordRecoveryCommandHandler>();
         services.AddScoped<ReauthenticationCommandHandler>();
         services.AddScoped<AuthenticationViewQueryHandler>();
+
+        // The money format the browser applies - anonymous, so the donation form has it too.
+        services.AddScoped<MoneyFormatQueryHandler>();
 
         // ---- SuperAdmin organisation switching: section 13 ---------------------------------------
         services.AddScoped<SelectTenantCommandHandler>();

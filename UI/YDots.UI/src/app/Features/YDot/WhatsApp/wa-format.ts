@@ -1,5 +1,7 @@
 /** Formatting and download helpers shared by the CheckNumber and Wati screens. */
 
+import { formatCount, formatMoney } from '../../../Shared/services/money-format';
+
 const DATE_TIME = new Intl.DateTimeFormat('en-IN', {
   day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false,
 });
@@ -41,14 +43,8 @@ export function timeZoneLabel(): string {
  * two, the cost of a whole 500-number check would read "$0.05" and a 50-number one "$0.00".
  */
 export function money(value: number, currency = 'USD', maximumFractionDigits = 4): string {
-  try {
-    return new Intl.NumberFormat('en-IN', {
-      style: 'currency', currency, minimumFractionDigits: 2, maximumFractionDigits,
-    }).format(value);
-  } catch {
-    // An unknown currency code: say the code rather than guess a symbol.
-    return `${currency} ${value.toFixed(maximumFractionDigits)}`;
-  }
+  // The platform's money format (grouping, symbol or code) with this price's own precision.
+  return formatMoney(value, currency, { minFraction: 2, maxFraction: maximumFractionDigits });
 }
 
 /** The price of ONE number, which is far below a cent: "$0.00009", not "$0.0001". */
@@ -57,7 +53,7 @@ export function unitPrice(value: number, currency = 'USD'): string {
 }
 
 export function count(value: number): string {
-  return value.toLocaleString('en-IN');
+  return formatCount(value);
 }
 
 export function duration(ms: number): string {

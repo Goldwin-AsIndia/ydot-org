@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { PageHeader } from '../../../../Shared/components/page-header/page-header';
 import { DashboardApiService } from '../../../../Service/dashboard-api.service';
+import { formatCount, formatMoney } from '../../../../Shared/services/money-format';
 import {
   DashboardOutcomeMetric,
   DashboardOutcomes,
@@ -518,17 +519,14 @@ export class ExecutiveDashboardComponent implements OnInit {
     return `${metric.qualifier} · ${before} in ${comparison}${change}`;
   }
 
-  /** A figure in its unit - compact money in the metric's currency, or a plain count. */
+  /**
+   * A figure in its unit, in the platform's money format: whole money in the metric's currency
+   * ("₹23,81,600" - an outcome is read, not audited), a grouped count, or a percentage.
+   */
   protected format(value: number, unit: DashboardUnit, currency?: string): string {
-    if (unit === 'money') {
-      try {
-        return new Intl.NumberFormat('en-IN', { style: 'currency', currency: currency || 'INR', notation: 'compact', maximumFractionDigits: 2 }).format(value);
-      } catch {
-        return String(value);
-      }
-    }
+    if (unit === 'money') return formatMoney(value, currency, { style: 'whole' });
     if (unit === 'percent') return `${Math.round(value)}%`;
-    return new Intl.NumberFormat('en-IN').format(value);
+    return formatCount(value, 1);
   }
 
   private downloadTextFile(filename: string, content: string): void {

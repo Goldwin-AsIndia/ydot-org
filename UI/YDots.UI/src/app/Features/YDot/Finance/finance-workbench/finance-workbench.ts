@@ -10,6 +10,7 @@ import { PageHeader } from '../../../../Shared/components/page-header/page-heade
 
 
 import { RowsPerPage } from '../../../../Shared/components/rows-per-page/rows-per-page';
+import { formatMoney } from '../../../../Shared/services/money-format';
 @Component({
   selector: 'app-finance-workbench',
   imports: [RowsPerPage, PageHeader, CommonModule, FormsModule],
@@ -584,8 +585,9 @@ export class FinanceWorkbenchComponent {
   }));
 
   // ================= Formatting helpers =================
+  /** Finance figures are exact to the paisa, in the platform's money format (₹23,81,600.00). */
   protected formatAmount(value: number): string {
-    return value.toLocaleString('en-IN');
+    return formatMoney(value ?? 0, null, { style: 'exact' });
   }
   protected ownerOf(reference: string): ScopeAwareOption {
     return this.ownerOptions.find((o) => o.reference === reference) ?? this.ownerOptions[0];

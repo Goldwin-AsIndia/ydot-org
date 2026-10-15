@@ -13,6 +13,7 @@ import {
 } from '../../../../Shared/models/donors-leads.model';
 import { effect, ElementRef, ViewChild } from '@angular/core';
 import { ConfirmModalComponent } from '../../../../Shared/components/confirm-modal/confirm-modal';
+import { currencyMark, formatAmountInput, formatMoney } from '../../../../Shared/services/money-format';
 
 /** One consent channel on the Consent tab, with what this caller may do to it. */
 interface ConsentChannelRow {
@@ -480,15 +481,8 @@ export class Donor360Component {
       const known = this.intentCurrencies();
       return code && !known.includes(code) ? [code, ...known] : known;
     });
-    readonly intentSymbol = computed(() => {
-      const code = this.intentCurrency().trim().toUpperCase();
-      try {
-        return new Intl.NumberFormat('en-IN', { style: 'currency', currency: code, currencyDisplay: 'narrowSymbol' })
-          .formatToParts(0).find(p => p.type === 'currency')?.value ?? code;
-      } catch {
-        return code;
-      }
-    });
+    /** "₹" or "INR" beside the amount box, per the platform's money format. */
+    readonly intentSymbol = computed(() => currencyMark(this.intentCurrency().trim().toUpperCase() || null));
     readonly intentFormatted = computed(() => {
       const amount = this.intentAmount();
       return amount && amount > 0 ? this.formatIntentAmount(amount) : '';
@@ -520,8 +514,7 @@ export class Donor360Component {
       const amount = this.intentAmount();
       if (amount === null || isNaN(amount)) return '';
       if (this.intentAmountFocused()) return this.intentAmountRaw();
-      const locale = this.intentCurrency().trim().toUpperCase() === 'INR' ? 'en-IN' : 'en-GB';
-      return amount.toLocaleString(locale, { maximumFractionDigits: 2 });
+      return formatAmountInput(amount, this.intentCurrency().trim().toUpperCase() || null);
     });
 
     focusIntentAmount() {
@@ -547,13 +540,7 @@ export class Donor360Component {
     });
 
     formatIntentAmount(amount: number): string {
-      const code = this.intentCurrency().trim().toUpperCase();
-      const locale = code === 'INR' ? 'en-IN' : 'en-GB';
-      try {
-        return new Intl.NumberFormat(locale, { style: 'currency', currency: code, currencyDisplay: 'narrowSymbol', maximumFractionDigits: 2, minimumFractionDigits: 0 }).format(amount);
-      } catch {
-        return `${code} ${amount.toLocaleString(locale)}`;
-      }
+      return formatMoney(amount, this.intentCurrency().trim().toUpperCase() || null);
     }
 
     dueFor(id: 'two-weeks' | 'month-end' | 'quarter'): string {
@@ -1107,15 +1094,12 @@ export class Donor360Component {
     // Formatting helpers (kept local — imports array left untouched)
     // ============================================================
   
-    /** An amount in the donor's own currency (see `currency`), or in the one named. */
+    /**
+     * An amount in the donor's own currency (see `currency`), or in the one named, in the
+     * platform's money format - paise only where the gift has them.
+     */
     money(amount: number, currency?: string): string {
-      const code = (currency || this.currency()).toUpperCase();
-      const locale = code === 'INR' ? 'en-IN' : 'en-GB';
-      try {
-        return new Intl.NumberFormat(locale, { style: 'currency', currency: code, currencyDisplay: 'narrowSymbol', maximumFractionDigits: 2, minimumFractionDigits: 0 }).format(amount || 0);
-      } catch {
-        return `${code} ${(amount || 0).toLocaleString(locale)}`;
-      }
+      return formatMoney(amount || 0, (currency || this.currency() || '').toUpperCase() || null);
     }
 
     /** Whether the caller may take a copy of this donor's history. */

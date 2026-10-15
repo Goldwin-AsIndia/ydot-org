@@ -238,6 +238,10 @@ public sealed class InputFileNumberRow
     [Column("normalized_number")]
     public string? NormalizedNumber { get; set; }
 
+    /// <summary>Added by the worker's SelectionDrivenWatiSends migration (15 Oct 2026).</summary>
+    [Column("contact_name")]
+    public string? ContactName { get; set; }
+
     [Column("phone_number_id")]
     public Guid? PhoneNumberId { get; set; }
 
@@ -557,6 +561,31 @@ public sealed class WatiJobRow
     [Column("rendered_preview")]
     public string? RenderedPreview { get; set; }
 
+    // ---- Added by the worker's SelectionDrivenWatiSends migration (15 Oct 2026) ----
+
+    [Column("template_body")]
+    public string? TemplateBody { get; set; }
+
+    [Column("parameter_bindings_json")]
+    public string? ParameterBindingsJson { get; set; }
+
+    [Column("requested_count")]
+    public int RequestedCount { get; set; }
+
+    [Column("excluded_json")]
+    public string? ExcludedJson { get; set; }
+
+    [Column("recipient_group_id")]
+    public Guid? RecipientGroupId { get; set; }
+
+    [Column("recipient_group_name")]
+    public string? RecipientGroupName { get; set; }
+
+    [Column("tags_json")]
+    public string? TagsJson { get; set; }
+
+    // ----
+
     [Column("total_recipients")]
     public int TotalRecipients { get; set; }
 
@@ -608,6 +637,22 @@ public sealed class WatiMessageRow
 
     [Column("integration_job_id")]
     public Guid? IntegrationJobId { get; set; }
+
+    [Column("checknumber_provider_task_id")]
+    public string? CheckNumberProviderTaskId { get; set; }
+
+    // ---- Added by the worker's SelectionDrivenWatiSends migration (15 Oct 2026) ----
+
+    [Column("source_job_id")]
+    public Guid? SourceJobId { get; set; }
+
+    [Column("source_job_number")]
+    public string? SourceJobNumber { get; set; }
+
+    [Column("contact_name")]
+    public string? ContactName { get; set; }
+
+    // ----
 
     [Column("phone_number_id")]
     public Guid PhoneNumberId { get; set; }
@@ -708,6 +753,15 @@ public sealed class WatiTemplateRow
 
     [Column("body")]
     public string? Body { get; set; }
+
+    [Column("header_json")]
+    public string? HeaderJson { get; set; }
+
+    [Column("footer")]
+    public string? Footer { get; set; }
+
+    [Column("buttons_json")]
+    public string? ButtonsJson { get; set; }
 
     [Column("parameters_json")]
     public string ParametersJson { get; set; } = "[]";

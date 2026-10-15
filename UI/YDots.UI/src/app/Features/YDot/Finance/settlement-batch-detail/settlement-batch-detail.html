@@ -125,19 +125,19 @@
             </div>
             <div>
               <dt>Gross amount</dt>
-              <dd class="num">₹ {{ formatAmount(summary.grossAmount) }}</dd>
+              <dd class="num">{{ formatAmount(summary.grossAmount) }}</dd>
             </div>
             <div>
               <dt>Fees</dt>
-              <dd class="num">₹ {{ formatAmount(summary.fees) }}</dd>
+              <dd class="num">{{ formatAmount(summary.fees) }}</dd>
             </div>
             <div>
               <dt>Tax</dt>
-              <dd class="num">₹ {{ formatAmount(summary.tax) }}</dd>
+              <dd class="num">{{ formatAmount(summary.tax) }}</dd>
             </div>
             <div>
               <dt>Net amount</dt>
-              <dd class="num strong">₹ {{ formatAmount(summary.netAmount) }}</dd>
+              <dd class="num strong">{{ formatAmount(summary.netAmount) }}</dd>
             </div>
             <div>
               <dt>Line count</dt>
@@ -145,15 +145,15 @@
             </div>
             <div>
               <dt>Matched amount</dt>
-              <dd class="num good">₹ {{ formatAmount(summary.matchedAmount) }}</dd>
+              <dd class="num good">{{ formatAmount(summary.matchedAmount) }}</dd>
             </div>
             <div>
               <dt>Unmatched amount</dt>
-              <dd class="num warn">₹ {{ formatAmount(summary.unmatchedAmount) }}</dd>
+              <dd class="num warn">{{ formatAmount(summary.unmatchedAmount) }}</dd>
             </div>
             <div>
               <dt>Variance</dt>
-              <dd class="num danger">₹ {{ formatAmount(summary.variance) }}</dd>
+              <dd class="num danger">{{ formatAmount(summary.variance) }}</dd>
             </div>
             <div>
               <dt>Import evidence</dt>
@@ -271,7 +271,7 @@
         <div class="card__head">
           <h2 id="lines-heading" class="card__title">Settlement lines</h2>
           <span class="line-total">
-            Gross ₹ {{ formatAmount(lineTotals().gross) }} · Fees ₹ {{ formatAmount(lineTotals().fees) }}
+            Gross {{ formatAmount(lineTotals().gross) }} · Fees {{ formatAmount(lineTotals().fees) }}
           </span>
         </div>
 
@@ -318,10 +318,10 @@
               <tbody>
                 @for (l of filteredLines(); track l.lineReference) {
                   <tr>
-                    <td class="col-num num" data-label="Amount">₹ {{ formatAmount(l.amount) }}</td>
-                    <td class="col-num" data-label="Fee">₹ {{ formatAmount(l.fee) }}</td>
-                    <td class="col-num" data-label="Tax">₹ {{ formatAmount(l.tax) }}</td>
-                    <td class="col-num num" data-label="Net">₹ {{ formatAmount(l.net) }}</td>
+                    <td class="col-num num" data-label="Amount">{{ formatAmount(l.amount) }}</td>
+                    <td class="col-num" data-label="Fee">{{ formatAmount(l.fee) }}</td>
+                    <td class="col-num" data-label="Tax">{{ formatAmount(l.tax) }}</td>
+                    <td class="col-num num" data-label="Net">{{ formatAmount(l.net) }}</td>
                     <td data-label="Match state">
                       <span class="badge" [class.badge--good]="l.matchState === 'Matched'"
                             [class.badge--info]="l.matchState === 'Unmatched'"
@@ -409,7 +409,7 @@
           </div>
           <div class="fact">
             <dt>Variance</dt>
-            <dd class="danger">₹ {{ formatAmount(summary.variance) }}</dd>
+            <dd class="danger">{{ formatAmount(summary.variance) }}</dd>
           </div>
           <div class="fact">
             <dt>Consequence</dt>
@@ -462,7 +462,7 @@
           </div>
           <div class="fact">
             <dt>Matched / Unmatched (now)</dt>
-            <dd>₹ {{ formatAmount(conflictCurrent()?.matchedAmount ?? 0) }} / ₹ {{ formatAmount(conflictCurrent()?.unmatchedAmount ?? 0) }}</dd>
+            <dd>{{ formatAmount(conflictCurrent()?.matchedAmount ?? 0) }} / {{ formatAmount(conflictCurrent()?.unmatchedAmount ?? 0) }}</dd>
           </div>
           <div class="fact">
             <dt>Your reason (kept)</dt>

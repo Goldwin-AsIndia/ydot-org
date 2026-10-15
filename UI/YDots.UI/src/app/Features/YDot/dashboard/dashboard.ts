@@ -4,6 +4,8 @@ import { RouterModule, Router } from '@angular/router';
 import { AuthSessionService } from '../../../Shared/services/auth-session.service';
 import { AuthTokenService } from '../../../Shared/services/auth-token.service';
 import { DashboardApiService } from '../../../Service/dashboard-api.service';
+import { formatCount, formatMoney } from '../../../Shared/services/money-format';
+import { GroupedNumberPipe } from '../../../Shared/pipes/money.pipe';
 import {
   DashboardActivityItem,
   DashboardAttentionItem,
@@ -58,7 +60,7 @@ interface RailCard extends DashboardHeadline {
  */
 @Component({
   selector: 'app-dashboard',
-  imports: [CommonModule, RouterModule],
+  imports: [CommonModule, RouterModule, GroupedNumberPipe],
   templateUrl: './dashboard.html',
   styleUrl: './dashboard.css',
 })
@@ -218,7 +220,7 @@ export class DashboardComponent implements OnInit {
       : '';
     const grid = [0, 0.25, 0.5, 0.75, 1].map((f) => ({
       y: y(top * f),
-      label: this.fmt(top * f, panel.unit, panel.currencyCode),
+      label: this.axis(top * f, panel.unit, panel.currencyCode),
     }));
     const points: ChartPoint[] = days.map((d, i) => {
       const value = this.fmt(d.value, panel.unit, panel.currencyCode);
@@ -413,35 +415,28 @@ export class DashboardComponent implements OnInit {
   // Formatting - presentation only
   // =============================================================================================
 
-  /** Compact money for captions, in the panel's currency. */
-  short(amount: number, currencyCode = 'INR'): string {
-    try {
-      return new Intl.NumberFormat('en-IN', {
-        style: 'currency',
-        currency: currencyCode || 'INR',
-        notation: 'compact',
-        maximumFractionDigits: 1,
-      }).format(amount);
-    } catch {
-      return String(Math.round(amount));
-    }
-  }
-
-  /** A figure in its unit: compact money, a plain count, or a percentage. */
+  /**
+   * A figure in its unit, in the platform's money format (money-format.ts): whole money -
+   * "₹23,81,600", because a dashboard is read at a glance and paise add nothing - a grouped
+   * count, or a percentage.
+   */
   fmt(value: number | null | undefined, unit: DashboardUnit, currencyCode?: string): string {
     const v = value ?? 0;
-    if (unit === 'money') return this.short(v, currencyCode);
+    if (unit === 'money') return formatMoney(v, currencyCode, { style: 'whole' });
     if (unit === 'percent') return `${Math.round(v)}%`;
-    return new Intl.NumberFormat('en-IN', {
-      notation: Math.abs(v) >= 100000 ? 'compact' : 'standard',
-      maximumFractionDigits: 1,
-    }).format(v);
+    return formatCount(v, 1);
   }
 
-  /** A pipeline fact: compact money ahead of its words when it carries an amount ("₹5L goal"). */
+  /** A chart axis tick: the short scale ("₹3.8L"), the only place the figure must fit a gutter. */
+  private axis(value: number, unit: DashboardUnit, currencyCode?: string): string {
+    if (unit === 'money') return formatMoney(value, currencyCode, { style: 'compact' });
+    return unit === 'percent' ? `${Math.round(value)}%` : formatCount(value, 1);
+  }
+
+  /** A pipeline fact: its amount ahead of its words when it carries one ("₹5,00,000 goal"). */
   metaText(meta: DashboardMeta): string {
     return meta.amount !== undefined && meta.amount !== null
-      ? `${this.short(meta.amount, meta.currencyCode)} ${meta.text}`
+      ? `${formatMoney(meta.amount, meta.currencyCode, { style: 'whole' })} ${meta.text}`
       : meta.text;
   }
 

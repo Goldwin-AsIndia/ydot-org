@@ -25,6 +25,7 @@ import { parseCsv } from '../../../../Shared/services/csv';
 import { ToastService } from '../../../../Shared/services/toast.service';
 
 import { RowsPerPage } from '../../../../Shared/components/rows-per-page/rows-per-page';
+import { formatMoney } from '../../../../Shared/services/money-format';
 /**
  * One Donor List row, mapped from `DON /api/v1/donors` (DonorListItem). Contact may arrive
  * masked by the server; `contactMasked` says so.
@@ -835,27 +836,9 @@ export class DonorListComponent {
     return !!donor.ownerUserId;
   }
 
-  protected formatMoney(value: number, currency = 'INR'): string {
-    try {
-      return new Intl.NumberFormat('en-IN', { style: 'currency', currency: currency || 'INR', maximumFractionDigits: 0 }).format(value || 0);
-    } catch {
-      return `${currency} ${new Intl.NumberFormat('en-IN').format(value || 0)}`;
-    }
-  }
-
-  /** Compact money for the overview: ₹4.2 L, ₹1.3 Cr for INR; 4.2M style otherwise. */
-  protected formatCompact(value: number, currency = 'INR'): string {
-    if (!currency || currency === 'INR') {
-      const trim = (n: number) => n.toFixed(2).replace(/\.?0+$/, '');
-      if (value >= 1e7) return '₹' + trim(value / 1e7) + ' Cr';
-      if (value >= 1e5) return '₹' + trim(value / 1e5) + ' L';
-      return this.formatMoney(value, 'INR');
-    }
-    try {
-      return new Intl.NumberFormat('en', { style: 'currency', currency, notation: 'compact', maximumFractionDigits: 1 }).format(value);
-    } catch {
-      return this.formatMoney(value, currency);
-    }
+  /** Giving, whole, in the platform's money format: "₹23,81,600". */
+  protected formatMoney(value: number, currency?: string): string {
+    return formatMoney(value || 0, currency || null, { style: 'whole' });
   }
 
   protected formatDate(value: string): string {

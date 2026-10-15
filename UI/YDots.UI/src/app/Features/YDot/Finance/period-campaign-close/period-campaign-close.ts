@@ -12,6 +12,7 @@ import {
 import { ToastService } from '../../../../Shared/services/toast.service';
 import { FinanceStateService } from '../shared/finance-state.service';
 import { PageHeader } from '../../../../Shared/components/page-header/page-header';
+import { formatMoney } from '../../../../Shared/services/money-format';
 
 /**
  * SCR-FIN-006 — Period / campaign close.
@@ -152,7 +153,7 @@ export class PeriodCampaignCloseComponent {
         key: 'unmatched',
         label: 'Unmatched amounts carried forward',
         state: unmatchedAmount > 0 ? 'Pending' : 'Complete',
-        detail: unmatchedAmount > 0 ? `₹${this.formatAmount(unmatchedAmount)} requires carry-forward justification` : 'No unmatched amount outstanding',
+        detail: unmatchedAmount > 0 ? `${this.formatAmount(unmatchedAmount)} requires carry-forward justification` : 'No unmatched amount outstanding',
       },
       { key: 'totals', label: 'Official totals published', state: 'Pending', detail: 'Awaiting sign-off' },
     ];
@@ -330,8 +331,9 @@ export class PeriodCampaignCloseComponent {
   }));
 
   // ================= Formatting helpers =================
+  /** Finance figures are exact to the paisa, in the platform's money format (₹23,81,600.00). */
   protected formatAmount(value: number): string {
-    return value.toLocaleString('en-IN');
+    return formatMoney(value ?? 0, null, { style: 'exact' });
   }
   protected checklistStateClass(state: string): string {
     switch (state) {

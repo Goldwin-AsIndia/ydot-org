@@ -1,0 +1,210 @@
+<main class="app-wrapper">
+<div class="page-wrapper">
+<div class="container-fluid px-4 py-3">
+<section class="cn wt">
+
+  <app-wati-head view="log" />
+
+  @if (notice(); as message) {
+    <p class="cn-alert cn-alert--info" role="status"><i class="ph-duotone ph-paper-plane-tilt" aria-hidden="true"></i><span>{{ message }}</span></p>
+  }
+  @if (problem(); as message) {
+    <p class="cn-alert cn-alert--bad" role="alert"><i class="ph-duotone ph-warning-circle" aria-hidden="true"></i><span>{{ message }}</span></p>
+  }
+
+  <section class="cn-sheet" aria-label="Send log">
+    <div class="cn-bar-tools">
+      <div class="cn-filters" role="tablist" aria-label="Filter by status">
+        @for (f of statusFilters(); track f.value) {
+          <button type="button" role="tab" class="cn-filter" [class.is-on]="status() === f.value" [attr.aria-selected]="status() === f.value" (click)="status.set(f.value)">
+            {{ f.label }} <span class="cn-count">{{ n(f.count) }}</span>
+          </button>
+        }
+      </div>
+    </div>
+    <div class="wt-filterbar wt-filterbar--top">
+      <label class="cn-search">
+        <i class="ph-duotone ph-magnifying-glass" aria-hidden="true"></i>
+        <input type="search" placeholder="Reference, name, template or group" [value]="search()" (input)="onSearch($any($event.target).value)" aria-label="Search the send log" />
+      </label>
+      @if (templateOptions().length > 1) {
+        <app-wa-select compact label="All templates" [options]="templateOptions()" [value]="template()" (valueChange)="template.set($event)" />
+      }
+      @if (groupOptions().length > 1) {
+        <app-wa-select compact label="All groups" [options]="groupOptions()" [value]="group()" (valueChange)="group.set($event)" />
+      }
+      <span class="wt-dates">
+        <label>From <input type="date" [value]="from()" (change)="from.set($any($event.target).value)" aria-label="Sent on or after" /></label>
+        <label>to <input type="date" [value]="to()" (change)="to.set($any($event.target).value)" aria-label="Sent on or before" /></label>
+      </span>
+      @if (filtered()) {
+        <button type="button" class="cn-link" (click)="clearFilters()">Clear filters</button>
+      }
+      @if (total() > 0) {
+        <button type="button" class="btn btn-outline-secondary btn-sm wt-push" (click)="exportLog()">
+          <i class="ph-duotone ph-download-simple" aria-hidden="true"></i> Export {{ n(total()) }} {{ total() === 1 ? 'send' : 'sends' }} (CSV)
+        </button>
+      }
+    </div>
+
+    @if (rows().length === 0) {
+      <div class="wt-none">
+        <i class="ph-duotone ph-list-checks" aria-hidden="true"></i>
+        @if (loading()) {
+          <h2 class="cn-h">Loading the send log…</h2>
+        } @else if (filtered()) {
+          <h2 class="cn-h">No send matches these filters</h2>
+          <button type="button" class="cn-link" (click)="clearFilters()">Clear the filters</button>
+        } @else {
+          <h2 class="cn-h">Nothing has been sent yet</h2>
+          <p class="cn-empty">Every send you make from the Send message tab is recorded here, number by number.</p>
+          <a routerLink="/app/whatsapp/wati" class="btn btn-primary btn-sm"><i class="ph-duotone ph-paper-plane-tilt" aria-hidden="true"></i> Pick numbers</a>
+        }
+      </div>
+    } @else {
+      <div class="cn-scroll">
+        <table class="cn-table wt-list">
+          <thead>
+            <tr><th>Send</th><th>When ({{ zone }})</th><th>Template</th><th>From</th><th class="r">Selected</th><th>Outcome</th><th>Checks</th><th>Status</th></tr>
+          </thead>
+          <tbody>
+            @for (b of rows(); track b.id) {
+              <tr class="cn-row" tabindex="0" (click)="open(b)" (keydown.enter)="open(b)">
+                <td><span class="cn-strong">{{ b.name }}</span><small class="cn-num">{{ b.reference }}{{ b.source === 'Automatic' ? ' · automatic (older)' : '' }}</small></td>
+                <td data-l="When">{{ dt(b.createdAtUtc) }}<small>{{ b.requestedByName || '' }}</small></td>
+                <td data-l="Template">{{ b.templateLabel }}<small class="cn-num">{{ b.templateName }}</small></td>
+                <td data-l="From">
+                  {{ b.recipientGroupName || (b.campaignName ? '' : 'Picked by hand') }}
+                  @if (b.campaignName) { <small>{{ b.campaignName }}</small> }
+                  @if (b.tags.length > 0) { <span class="wt-chips">@for (t of b.tags; track t) { <span class="wt-chip">{{ t }}</span> }</span> }
+                </td>
+                <td class="r cn-num" data-l="Selected">{{ n(b.requestedCount) }}</td>
+                <td data-l="Outcome">
+                  <span class="wt-figline">
+                    <span class="cn-ok">{{ n(b.accepted) }} sent</span>
+                    @if (b.failed > 0) { <span class="cn-bad">{{ n(b.failed) }} failed</span> }
+                    @if (b.skipped > 0) { <span class="cn-note">{{ n(b.skipped) }} skipped</span> }
+                    @if (b.excludedCount > 0) { <span class="cn-note">{{ n(b.excludedCount) }} left out</span> }
+                  </span>
+                </td>
+                <td data-l="Checks">
+                  @if (b.sourceJobs.length > 0) { <span class="wt-chips">@for (j of b.sourceJobs; track j) { <span class="wt-chip cn-num">{{ j }}</span> }</span> }
+                  @else { <span class="wt-dash">Not recorded</span> }
+                </td>
+                <td data-l="Status"><span class="cn-st cn-st--{{ statusClass(b.status) }}">{{ statusWord(b.status) }}</span></td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+      <app-wa-pager [total]="total()" [page]="page()" [size]="pageSize()" noun="sends" [sizes]="[10, 25, 50, 100]"
+                    (pageChange)="page.set($event)" (sizeChange)="pageSize.set($event); page.set(1)" />
+    }
+  </section>
+  <p class="wt-zone">Each row is one send. Open it for every selected number with the check it was picked from, its CheckNumber.ai task and its outcome. Times are shown in {{ zone }}.</p>
+</section>
+</div>
+</div>
+</main>
+
+<app-popup [open]="!!sendId()" mode="drawer" size="lg" icon="ph-duotone ph-list-checks"
+           [kicker]="detail() ? 'Send · ' + statusWord(detail()!.broadcast.status) : 'Send'" [title]="detail()?.broadcast?.name ?? ''"
+           [lead]="detail() ? detail()!.broadcast.reference + ' · ' + dtFull(detail()!.broadcast.createdAtUtc) : ''" (closed)="close()">
+  @if (detail(); as d) {
+    <div class="wt-detail">
+      @if (actionProblem(); as message) {
+        <p class="cn-alert cn-alert--bad" role="alert"><i class="ph-duotone ph-warning-circle" aria-hidden="true"></i><span>{{ message }}</span></p>
+      }
+      @if (d.broadcast.errorMessage) {
+        <p class="cn-alert cn-alert--bad" role="note"><i class="ph-duotone ph-warning-circle" aria-hidden="true"></i><span>{{ d.broadcast.errorMessage }}</span></p>
+      }
+
+      <dl class="wt-figs wt-figs--flush">
+        <div><dt>Selected</dt><dd class="cn-serif">{{ n(d.broadcast.requestedCount) }}</dd></div>
+        <div class="wt-fig--ok"><dt>Sent</dt><dd class="cn-serif">{{ n(d.broadcast.accepted) }}</dd></div>
+        <div class="wt-fig--bad"><dt>Failed</dt><dd class="cn-serif">{{ n(d.broadcast.failed) }}</dd></div>
+        <div class="wt-fig--warn"><dt>Skipped</dt><dd class="cn-serif">{{ n(d.broadcast.skipped) }}</dd></div>
+        <div class="wt-fig--bad"><dt>Left out</dt><dd class="cn-serif">{{ n(d.broadcast.excludedCount) }}</dd></div>
+      </dl>
+
+      <dl class="yp-facts">
+        <div><dt>Requested by</dt><dd>{{ d.broadcast.requestedByName || '—' }}</dd></div>
+        <div><dt>Template</dt><dd>{{ d.broadcast.templateLabel }}<small class="cn-num">{{ d.broadcast.templateName }}</small></dd></div>
+        <div><dt>Campaign</dt><dd>{{ d.broadcast.campaignName || '—' }}</dd></div>
+        <div><dt>Group</dt><dd>{{ d.broadcast.recipientGroupName || 'Picked by hand' }}</dd></div>
+        @if (d.broadcast.tags.length > 0) { <div><dt>Tags</dt><dd>{{ d.broadcast.tags.join(', ') }}</dd></div> }
+        <div><dt>Numbers picked from</dt><dd>
+          @if (d.broadcast.sourceJobs.length > 0) {
+            <span class="wt-chips">@for (j of d.broadcast.sourceJobs; track j) { <a class="wt-chip cn-num" [routerLink]="['/app/whatsapp/check-number/jobs', j]">{{ j }}</a> }</span>
+          } @else { Not recorded (sent before checks were tracked per message) }
+        </dd></div>
+        @if (d.broadcast.jobNumber) { <div><dt>Automatic send of</dt><dd class="cn-num">{{ d.broadcast.jobNumber }}</dd></div> }
+      </dl>
+
+      <p class="cn-label">Template values</p>
+      <dl class="yp-facts">
+        @for (v of valueList(); track v[0]) {
+          <div><dt class="cn-num">{{ v[0] }}</dt><dd>{{ d.bindings[v[0]] ? 'Each recipient\'s ' + (d.bindings[v[0]] === 'contactName' ? 'name from the file' : 'number') + (v[1] ? ' · otherwise “' + v[1] + '”' : '') : v[1] }}</dd></div>
+        } @empty {
+          <div><dt>—</dt><dd>The template has no values.</dd></div>
+        }
+      </dl>
+      @if (d.templateBody) {
+        <p class="cn-label">Template as sent</p>
+        <p class="wt-bubble wt-bubble--flat">{{ d.templateBody }}</p>
+      }
+
+      <p class="cn-label">Every selected number</p>
+      <div class="cn-filters wt-detail-filters" role="tablist" aria-label="Filter the numbers">
+        @for (f of recipientFilters(); track f.value) {
+          <button type="button" role="tab" class="cn-filter" [class.is-on]="detailFilter() === f.value" (click)="detailFilter.set(f.value)">{{ f.label }} <span class="cn-count">{{ n(f.count) }}</span></button>
+        }
+      </div>
+      <div class="wt-mini-wrap">
+      <table class="wt-mini-table">
+        <thead><tr><th>Number</th><th>Picked from</th><th>Status and times</th></tr></thead>
+        <tbody>
+          @for (r of recipients(); track r.number) {
+            <tr>
+              <td><span class="cn-num wt-nowrap">{{ r.number }}</span>@if (r.contactName) { <small>{{ r.contactName }}</small> }</td>
+              <td><span class="cn-num wt-nowrap">{{ r.sourceJobNumber || '—' }}</span>@if (r.checkNumberTaskId) { <small class="cn-num">CheckNumber.ai task {{ r.checkNumberTaskId }}</small> }</td>
+              <td>
+                <span class="wt-st wt-st--{{ r.status }}">{{ word(r.status) }}</span>@if (r.reasonText) { <small>{{ r.reasonText }}</small> }
+                @if (r.sentAtUtc) { <small>Sent {{ dt(r.sentAtUtc) }}</small> }
+                @if (r.deliveredAtUtc) { <small>Delivered {{ dt(r.deliveredAtUtc) }}</small> }
+                @if (r.readAtUtc) { <small>Read {{ dt(r.readAtUtc) }}</small> }
+                @if (r.failedAtUtc) { <small>Failed {{ dt(r.failedAtUtc) }}</small> }
+              </td>
+            </tr>
+          } @empty {
+            <tr><td colspan="3">No number here.</td></tr>
+          }
+        </tbody>
+      </table>
+      </div>
+
+      @if (d.events.length > 0) {
+        <p class="cn-label">What the worker did</p>
+        <ol class="wt-ev">
+          @for (e of d.events; track $index) { <li><span>{{ dt(e.occurredAtUtc) }}</span><span>{{ e.message }}</span></li> }
+        </ol>
+      }
+    </div>
+  } @else if (detailLoading()) {
+    <p class="cn-empty">Loading the send…</p>
+  } @else if (actionProblem(); as message) {
+    <p class="cn-alert cn-alert--bad" role="alert"><i class="ph-duotone ph-warning-circle" aria-hidden="true"></i><span>{{ message }}</span></p>
+  }
+  <ng-container popupActions>
+    @if (detail(); as d) {
+      @if (d.broadcast.permittedActions.includes('retry')) {
+        <button type="button" class="btn btn-primary btn-sm" (click)="retry(d.broadcast.id)">{{ busy() ? 'Retrying…' : 'Retry ' + n(d.broadcast.retryableFailures) + ' failed' }}</button>
+      }
+      @if (d.broadcast.permittedActions.includes('export')) {
+        <button type="button" class="btn btn-outline-secondary btn-sm" (click)="exportOne(d.broadcast.id)"><i class="ph-duotone ph-download-simple" aria-hidden="true"></i> Export (CSV)</button>
+      }
+      <a class="btn btn-outline-secondary btn-sm" [routerLink]="['/app/whatsapp/wati/report']" [queryParams]="{ broadcast: d.broadcast.id }">Delivery report</a>
+    }
+    <button type="button" class="btn btn-outline-secondary btn-sm" (click)="close()">Close</button>
+  </ng-container>
+</app-popup>

@@ -1,0 +1,30 @@
+<header class="cn-hero">
+  <div>
+    <p class="cn-eyebrow">WhatsApp messaging</p>
+    <h1 class="cn-title">WhatsApp Messages</h1>
+  </div>
+  <dl class="cn-stats">
+    <div class="cn-stat"><dt>Numbers ready</dt><dd class="cn-serif">{{ n(ready()) }}</dd></div>
+    <div class="cn-stat"><dt>Messages sent</dt><dd class="cn-serif">{{ n(sent()) }}</dd></div>
+    <div class="cn-stat"><dt>Read rate</dt><dd class="cn-serif">{{ readRate() }}<small>%</small></dd></div>
+  </dl>
+</header>
+
+<div class="cn-nav">
+  <nav class="cn-tabs wt-tabs4" aria-label="WhatsApp Messages views">
+    <a routerLink="/app/whatsapp/wati" class="cn-tab" [class.is-on]="view() === 'send'">
+      <i class="ph-duotone ph-paper-plane-tilt" aria-hidden="true"></i> Send message
+      @if (selected() > 0) { <span class="cn-count">{{ n(selected()) }}</span> }
+    </a>
+    <a routerLink="/app/whatsapp/wati/groups" class="cn-tab" [class.is-on]="view() === 'groups'">
+      <i class="ph-duotone ph-users-three" aria-hidden="true"></i> Groups
+    </a>
+    <a routerLink="/app/whatsapp/wati/send-log" class="cn-tab" [class.is-on]="view() === 'log'">
+      <i class="ph-duotone ph-list-checks" aria-hidden="true"></i> Send log
+    </a>
+    <a routerLink="/app/whatsapp/wati/report" class="cn-tab" [class.is-on]="view() === 'report'">
+      <i class="ph-duotone ph-checks" aria-hidden="true"></i> Delivered &amp; read
+    </a>
+  </nav>
+  <p class="wt-from">Numbers come from <a routerLink="/app/whatsapp/check-number" class="cn-link">Number Verification</a> · nothing is sent until you choose who to message</p>
+</div>

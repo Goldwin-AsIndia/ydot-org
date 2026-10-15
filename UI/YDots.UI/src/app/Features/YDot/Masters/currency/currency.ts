@@ -18,6 +18,7 @@ import { MasterService } from '../master.service';
 import { PageHeader } from '../../../../Shared/components/page-header/page-header';
 
 import { RowsPerPage } from '../../../../Shared/components/rows-per-page/rows-per-page';
+import { formatMoneyWithRule } from '../../../../Shared/services/money-format';
 /**
  * One currency, in the shape this screen's template binds to.
  *
@@ -598,20 +599,22 @@ export class CurrencyComponent implements OnInit {
   }
 
   /**
-   * A sample amount as this currency would print it, for the form's preview line: the display
-   * format when it has an {amount} slot, otherwise the symbol before or after the figure.
+   * A sample amount as the application will print this currency, for the form's preview line:
+   * the platform's money format (grouping, symbol or code) under the symbol, position and decimal
+   * places being edited - the same rule and the same sample IAM uses for the grid.
    */
   get sampleAmount(): string {
     const f = this.formCurrency;
-    const places = f.decimalPlaces ?? 2;
-    const figure = (12345.678).toLocaleString('en-US', {
-      minimumFractionDigits: places,
-      maximumFractionDigits: places,
-    });
-    if (f.displayFormat?.includes('{amount}')) return f.displayFormat.replace('{amount}', figure);
-    const mark = f.symbol?.trim() || f.currencyCode?.trim().toUpperCase() || '';
-    if (!mark) return figure;
-    return f.symbolPosition === 'suffix' ? `${figure} ${mark}` : `${mark} ${figure}`;
+    return formatMoneyWithRule(
+      1234567.5,
+      {
+        code: f.currencyCode?.trim().toUpperCase() ?? '',
+        symbol: f.symbol?.trim() || null,
+        symbolAfter: f.symbolPosition === 'suffix',
+        decimalPlaces: f.decimalPlaces ?? 2,
+      },
+      { style: 'exact' },
+    );
   }
 
   get roundingStepString(): string {

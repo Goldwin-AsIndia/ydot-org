@@ -20,6 +20,23 @@ public static class WhatsAppAuditActionCodes
 
     public const string TemplatesRefreshRequested = "WHATSAPP_TEMPLATES_REFRESH_REQUESTED";
 
+    public const string BroadcastRetryRequested = "WHATSAPP_BROADCAST_RETRY_REQUESTED";
+
+    public const string GroupCreated = "WHATSAPP_GROUP_CREATED";
+
+    public const string GroupUpdated = "WHATSAPP_GROUP_UPDATED";
+
+    public const string GroupMembersAdded = "WHATSAPP_GROUP_MEMBERS_ADDED";
+
+    public const string GroupMembersRemoved = "WHATSAPP_GROUP_MEMBERS_REMOVED";
+
+    public const string GroupDeleted = "WHATSAPP_GROUP_DELETED";
+
+    /// <summary>The send log (or one send of it) was downloaded; the file's reference is in the reason.</summary>
+    public const string SendLogExported = "WHATSAPP_SEND_LOG_EXPORTED";
+
+    public const string GroupTarget = "WhatsAppGroup";
+
     // ---- Derived from the worker's tables for Recent Activity (never written to cam_audit_events) ----
 
     public const string CheckCompleted = "WHATSAPP_NUMBER_CHECK_COMPLETED";

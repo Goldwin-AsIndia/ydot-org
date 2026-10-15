@@ -20,6 +20,8 @@ import {
   ExistingDonorCheckResponse,
   unpayableReason,
 } from '../../../../Shared/models/payment.model';
+import { currencyMark, formatMoney } from '../../../../Shared/services/money-format';
+import { MoneyPipe } from '../../../../Shared/pipes/money.pipe';
 
 
 /**
@@ -97,7 +99,7 @@ type RelatedTab = 'Linked' | 'Documents' | 'Activity' | 'Integration' | 'Support
 
 @Component({
   selector: 'app-public-donation-initiation',
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, MoneyPipe],
   templateUrl: './public-donation-initiation.html',
   styleUrl: './public-donation-initiation.css',
 })
@@ -224,14 +226,8 @@ export class PublicDonationInitiationComponent {
       return '';
     }
 
-    const formatted = amount.toLocaleString(undefined, {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    });
-
-    const code = this.campaignAmountCurrency();
-
-    return code ? `${code} ${formatted}` : formatted;
+    // EXACT: the figure the donor is about to be charged.
+    return formatMoney(amount, this.campaignAmountCurrency() || null, { style: 'exact' });
   });
 
   /**
@@ -380,8 +376,7 @@ export class PublicDonationInitiationComponent {
     if (!this.donationAmount() || Number.isNaN(n)) {
       return '';
     }
-    const cur = this.currencyLabel(this.currency()) || this.currency();
-    return `${cur} ${n.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    return formatMoney(n, this.currencyLabel(this.currency()) || this.currency() || null, { style: 'exact' });
   });
 
   protected readonly currencyCatalogue = signal<readonly CatalogueOption[]>([]);
@@ -585,26 +580,29 @@ export class PublicDonationInitiationComponent {
   );
 
   /**
-   * The gift as the pledge leaf prints it: currency code and figure apart, so the figure can be
-   * set large. The campaign's stated amount, or a reopened intent's own; null when neither exists.
+   * The gift as the pledge leaf prints it: the currency mark and the figure apart, so the figure
+   * can be set large, and `text` whole for the pay button. The campaign's stated amount, or a
+   * reopened intent's own; null when neither exists. Exact, in the platform's money format.
    */
-  protected readonly amountFigure = computed<{ code: string; value: string } | null>(() => {
+  protected readonly amountFigure = computed<{ code: string; value: string; text: string } | null>(() => {
     const amount = this.campaignAmount();
     if (amount !== null && !this.amountFromIntent()) {
-      return {
-        code: this.campaignAmountCurrency() || this.currencyLabel(this.currency()) || this.currency(),
-        value: amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
-      };
+      return this.figureOf(amount, this.campaignAmountCurrency() || this.currencyLabel(this.currency()) || this.currency());
     }
     const n = Number(this.donationAmount());
     if (this.formLocked() && this.donationAmount() && !Number.isNaN(n)) {
-      return {
-        code: this.currencyLabel(this.currency()) || this.currency(),
-        value: n.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
-      };
+      return this.figureOf(n, this.currencyLabel(this.currency()) || this.currency());
     }
     return null;
   });
+
+  private figureOf(amount: number, code: string): { code: string; value: string; text: string } {
+    return {
+      code: code ? currencyMark(code) : '',
+      value: formatMoney(amount, code || null, { style: 'exact', marker: false }),
+      text: formatMoney(amount, code || null, { style: 'exact' }),
+    };
+  }
 
   // ==========================================================================================
   // Custom dropdowns (Currency / Country / State / City) — replaces the native <select>

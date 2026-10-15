@@ -4,6 +4,7 @@ using YDot.PAY.Application.Common.Abstractions.Persistence;
 using YDot.PAY.Application.Common.Abstractions.Security;
 using YDot.PAY.Application.Common.Abstractions.Services;
 using YDot.PAY.Application.Common.Constants;
+using YDot.PAY.Application.Common.Formatting;
 using YDot.PAY.Application.Common.Models;
 using YDot.PAY.Application.Common.Results;
 using YDot.PAY.Application.Common.Settings;
@@ -175,8 +176,8 @@ public sealed class PaymentDashboardQueryHandler(
         var headlines = new List<DashboardHeadlineResponse>
         {
             new("pay.funds", Ranks.Funds, "Funds received", "ri-wallet-3-line", "ok",
-                statistics.NetAmount.Display,
-                statistics.TotalCount == 0 ? "Nothing received yet" : $"after {statistics.TotalRefunded.Display} refunded",
+                Headline(statistics.NetAmount),
+                statistics.TotalCount == 0 ? "Nothing received yet" : $"after {Headline(statistics.TotalRefunded)} refunded",
                 settledShare ?? 0m,
                 settledShare is { } settled ? $"{settled:0}% of gifts settled" : "Waiting for the first gift",
                 payments,
@@ -446,11 +447,11 @@ public sealed class PaymentDashboardQueryHandler(
         var headlines = new List<DashboardHeadlineResponse>
         {
             new("pay.funds", Ranks.Funds, "Your giving", "ri-wallet-3-line", "ok",
-                statistics.NetAmount.Display,
+                Headline(statistics.NetAmount),
                 statistics.TotalCount == 0
                     ? "Nothing given yet"
                     : statistics.TotalRefunded.Amount > 0m
-                        ? $"after {statistics.TotalRefunded.Display} refunded"
+                        ? $"after {Headline(statistics.TotalRefunded)} refunded"
                         : $"across {DashboardFormat.Counted(totals.CampaignCount, "campaign", "campaigns")}",
                 settledShare ?? 0m,
                 settledShare is { } settled ? $"{settled:0}% of your gifts settled" : "Waiting for your first gift",
@@ -909,6 +910,10 @@ public sealed class PaymentDashboardQueryHandler(
             link,
             empty);
     }
+
+    /// <summary>A headline figure: whole rupees, because a tile is read at a glance, not audited.</summary>
+    private static string Headline(MoneyResponse money) =>
+        MoneyText.Format(money.Amount, money.CurrencyCode, MoneyStyle.Whole);
 
     private DashboardAgendaItemResponse ToAgendaItem(PaymentEventListItemResponse item, bool failed, string? payments)
     {

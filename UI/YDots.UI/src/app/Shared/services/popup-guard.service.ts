@@ -315,6 +315,13 @@ export class PopupGuardService {
 
   /** A footer left with nothing visible once its close buttons are hidden is hidden too. */
   private hideEmptyParents(hidden: HTMLElement[], panel: HTMLElement): void {
+    // ...and shown again once it holds more than those: a screen that offers its main action only when
+    // it can be taken (a name typed, a record loaded) adds that button after the pop-up opened, and it
+    // stayed invisible inside the footer hidden at opening. Innermost first, so nested wrappers follow.
+    for (const wrapper of Array.from(panel.querySelectorAll<HTMLElement>('[data-yp-dismiss]:not(button):not(a)')).reverse()) {
+      const children = Array.from(wrapper.children) as HTMLElement[];
+      if (!children.every((c) => c.hasAttribute('data-yp-dismiss'))) wrapper.removeAttribute('data-yp-dismiss');
+    }
     for (const b of hidden) {
       let parent = b.parentElement;
       while (parent && parent !== panel && !parent.matches(PANEL)) {

@@ -10,6 +10,7 @@ import {
   destinationAfterPayment,
   payerKind,
 } from '../../../../Shared/services/donation-redirect.policy';
+import { formatMoney } from '../../../../Shared/services/money-format';
 
 type ResultState = 'checking' | 'confirmed' | 'pending' | 'failed' | 'unknown';
 
@@ -127,11 +128,8 @@ export class PaymentResultComponent implements OnDestroy {
     if (!amount) {
       return '';
     }
-    const symbol = amount.currencyCode === 'INR' ? '₹' : '';
-    return `${symbol}${amount.amount.toLocaleString('en-IN', {
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 2,
-    })}`;
+    // EXACT: this is the money the donor has just been charged.
+    return formatMoney(amount.amount, amount.currencyCode, { style: 'exact' });
   });
 
   protected readonly receiptEligible = computed(

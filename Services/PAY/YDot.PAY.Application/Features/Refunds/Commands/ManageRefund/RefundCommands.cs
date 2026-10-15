@@ -5,6 +5,7 @@ using YDot.PAY.Application.Common.Abstractions.Services;
 using YDot.PAY.Application.Common.Constants;
 using YDot.PAY.Application.Common.Models;
 using YDot.PAY.Application.Common.Results;
+using YDot.PAY.Application.Common.Formatting;
 using YDot.PAY.Application.Features.Refunds.DTOs;
 using YDot.PAY.Application.Features.Refunds.Mappings;
 using YDot.PAY.Domain.Common;
@@ -104,7 +105,7 @@ public sealed class RefundCommandHandler(
         {
             logger.LogWarning("Refund request rejected for donation {DonationId} because the requested amount exceeds the refundable balance.", command.DonationId);
             return Result.Failure<RefundCaseDetailResponse>(Error.RefundExceedsBalance(
-                $"Only {donation.RefundableAmount} can still be refunded on this donation."));
+                $"Only {MoneyText.Format(donation.RefundableAmount.Amount, donation.RefundableAmount.CurrencyCode, MoneyStyle.Exact)} can still be refunded on this donation."));
         }
 
         var reference = await MintCaseReferenceAsync("REF", cancellationToken);
@@ -226,7 +227,7 @@ public sealed class RefundCommandHandler(
         {
             logger.LogWarning("Refund case {RefundCaseId} approval rejected because the refundable balance is insufficient.", command.RefundCaseId);
             return Result.Failure<OutcomeResponse>(Error.RefundExceedsBalance(
-                $"Only {donation.RefundableAmount} can still be refunded. "
+                $"Only {MoneyText.Format(donation.RefundableAmount.Amount, donation.RefundableAmount.CurrencyCode, MoneyStyle.Exact)} can still be refunded. "
                 + "Another refund may have completed since this was raised."));
         }
 

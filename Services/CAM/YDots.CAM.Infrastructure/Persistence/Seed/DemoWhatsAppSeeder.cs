@@ -139,7 +139,12 @@ public sealed class DemoWhatsAppSeeder(
 
         var now = DateTimeOffset.UtcNow;
         var batch = new Batch(organisation, tenant, administrator, now, campaignIds, campaignNames,
-            await ReadSequencesAsync(cancellationToken), ResolveDataRoot());
+            await ReadSequencesAsync(cancellationToken), ResolveDataRoot())
+        {
+            SelectionColumns = await ScalarAsync(
+                "SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'int_wati_messages' AND column_name = @value",
+                "source_job_id", cancellationToken) is not null
+        };
 
         // IN THE ORDER IT HAPPENED, jobs and broadcasts together: a broadcast can only reach numbers
         // checked before it, a later job skips numbers messaged earlier, and the day's references are
@@ -223,6 +228,12 @@ public sealed class DemoWhatsAppSeeder(
                 .ToList();
 
             var newNumbers = statuses.Select((status, index) => batch.NewPhone(position, index + 1, status, at)).ToList();
+
+            foreach (var phone in newNumbers)
+            {
+                phone.JobId = jobId;
+                phone.JobNumber = jobNumber;
+            }
 
             unique = [.. reused.Concat(newNumbers)
                 .Select((phone, index) => (phone, key: StableHash($"{job.FileName}|order|{phone.E164}")))
@@ -435,6 +446,12 @@ public sealed class DemoWhatsAppSeeder(
                     Event("CHECKNUMBER_PROCESS_RESULTS", "Information", "RESULTS_PROCESSED", processed);
 
                     batch.AddTask(taskId.Value, providerTaskId, jobId, fresh, cost.Value, created, exported, clock, zipBytes);
+
+                    foreach (var phone in fresh)
+                    {
+                        phone.TaskId = taskId;
+                        phone.ProviderTaskId = providerTaskId;
+                    }
                 }
                 else
                 {
@@ -701,7 +718,7 @@ public sealed class DemoWhatsAppSeeder(
             plans.Add(plan);
         }
 
-        return AddWatiJob(batch, id, reference, "Automatic", jobId, taskId, providerTaskId, campaignId,
+        return AddWatiJob(batch, id, reference, "Automatic", jobId, jobNumber, taskId, providerTaskId, campaignId,
             AutomaticTemplate, AutomaticTemplate, at, plans, cancelled: false, templateMissing: false);
     }
 
@@ -759,7 +776,7 @@ public sealed class DemoWhatsAppSeeder(
             }));
         }
 
-        AddWatiJob(batch, id, reference, "Manual", null, null, null,
+        AddWatiJob(batch, id, reference, "Manual", null, null, null, null,
             broadcast.Campaign is null ? null : batch.CampaignIds[broadcast.Campaign],
             broadcast.Template, broadcast.Name, at, plans,
             cancelled: broadcast.Outcome == BroadcastOutcome.Cancelled,
@@ -771,7 +788,7 @@ public sealed class DemoWhatsAppSeeder(
     // =============================================================================================
 
     private WatiOutcome AddWatiJob(
-        Batch batch, Guid id, string reference, string source, Guid? integrationJobId, Guid? taskId,
+        Batch batch, Guid id, string reference, string source, Guid? integrationJobId, string? integrationJobNumber, Guid? taskId,
         string? providerTaskId, Guid? campaignId, string template, string broadcastName, DateTimeOffset at,
         IReadOnlyList<(Phone Phone, char Letter, string? SkipReason)> plans, bool cancelled, bool templateMissing)
     {
@@ -837,6 +854,11 @@ public sealed class DemoWhatsAppSeeder(
             ("completed_at_utc", finished),
             ("updated_at_utc", finished));
 
+        if (batch.SelectionColumns)
+        {
+            batch.Append(("requested_count", plans.Count));
+        }
+
         if (sentToWati > 0)
         {
             batch.Add("int_wati_batches",
@@ -863,7 +885,7 @@ public sealed class DemoWhatsAppSeeder(
 
         foreach (var (plan, position) in plans.Select((plan, position) => (plan, position)))
         {
-            AddMessage(batch, id, batchId, integrationJobId, taskId, providerTaskId, campaignId, template,
+            AddMessage(batch, id, batchId, integrationJobId, integrationJobNumber, taskId, providerTaskId, campaignId, template,
                 broadcastName, parameters, plan, position, started, sentToWati > 0, templateMissing);
         }
 
@@ -908,7 +930,7 @@ public sealed class DemoWhatsAppSeeder(
     }
 
     private void AddMessage(
-        Batch batch, Guid watiJobId, Guid batchId, Guid? integrationJobId, Guid? taskId, string? providerTaskId,
+        Batch batch, Guid watiJobId, Guid batchId, Guid? integrationJobId, string? integrationJobNumber, Guid? taskId, string? providerTaskId,
         Guid? campaignId, string template, string broadcastName, string parameters,
         (Phone Phone, char Letter, string? SkipReason) plan, int position, DateTimeOffset started,
         bool batchSent, bool templateMissing)
@@ -958,8 +980,9 @@ public sealed class DemoWhatsAppSeeder(
             ("wati_job_id", watiJobId),
             ("wati_batch_id", isSkip || !batchSent ? null : batchId),
             ("integration_job_id", integrationJobId),
-            ("checknumber_task_id", integrationJobId is null ? null : taskId),
-            ("checknumber_provider_task_id", integrationJobId is null ? null : providerTaskId),
+            // The task that checked this number (a reused number was checked by an earlier one).
+            ("checknumber_task_id", phone.TaskId ?? (integrationJobId is null ? null : taskId)),
+            ("checknumber_provider_task_id", phone.ProviderTaskId ?? (integrationJobId is null ? null : providerTaskId)),
             ("phone_number_id", phone.Id),
             ("campaign_id", campaignId),
             ("whatsapp_number", phone.Digits),
@@ -1009,6 +1032,15 @@ public sealed class DemoWhatsAppSeeder(
             // NEVER FOLLOWED UP: the worker asks WATI about a message only when this is set.
             ("next_status_check_at_utc", null),
             ("updated_at_utc", Clamp(batch, repliedAt.AddMinutes(1))));
+
+        if (batch.SelectionColumns)
+        {
+            // The check the number was picked from, as the worker records it for every send now: for
+            // an older automatic send the check that sent it, otherwise the check that first found it.
+            batch.Append(
+                ("source_job_id", integrationJobId ?? phone.JobId),
+                ("source_job_number", integrationJobId is null ? phone.JobNumber : integrationJobNumber));
+        }
     }
 
     // =============================================================================================
@@ -1418,6 +1450,15 @@ public sealed class DemoWhatsAppSeeder(
 
         /// <summary>When a message to it was first accepted by WATI.</summary>
         public DateTimeOffset? MessagedAt { get; set; }
+
+        /// <summary>The check that first found it, and the CheckNumber.ai task that checked it.</summary>
+        public Guid? JobId { get; set; }
+
+        public string? JobNumber { get; set; }
+
+        public Guid? TaskId { get; set; }
+
+        public string? ProviderTaskId { get; set; }
     }
 
     /// <summary>Everything one Organisation's rows are built from, and the rows themselves.</summary>
@@ -1459,7 +1500,17 @@ public sealed class DemoWhatsAppSeeder(
 
         public int MessageCount { get; set; }
 
+        /// <summary>
+        /// The worker's schema has the columns that trace a send to its checks (source_job_*,
+        /// requested_count). A worker that has not migrated yet gets the rows without them.
+        /// </summary>
+        public bool SelectionColumns { get; init; }
+
         public void Add(string table, params (string Column, object? Value)[] values) => Rows.Add((table, values));
+
+        /// <summary>Adds columns to the row added last.</summary>
+        public void Append(params (string Column, object? Value)[] values) =>
+            Rows[^1] = (Rows[^1].Table, [.. Rows[^1].Values, .. values]);
 
         public string NextReference(string name, string period)
         {

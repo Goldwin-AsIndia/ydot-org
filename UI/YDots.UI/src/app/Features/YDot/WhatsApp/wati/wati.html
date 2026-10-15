@@ -3,207 +3,392 @@
 <div class="container-fluid px-4 py-3">
 <section class="cn wt">
 
-  <!-- ================================================================ hero -->
-  <header class="cn-hero">
-    <div>
-      <p class="cn-eyebrow">WhatsApp messaging</p>
-      <h1 class="cn-title">WhatsApp Messages</h1>
-    </div>
-    <dl class="cn-stats">
-      <div class="cn-stat"><dt>Numbers ready</dt><dd class="cn-serif">{{ n(store.pool().length) }}</dd></div>
-      <div class="cn-stat"><dt>Messages sent</dt><dd class="cn-serif">{{ n(messagesSent()) }}</dd></div>
-      <div class="cn-stat"><dt>Read rate</dt><dd class="cn-serif">{{ readRate() }}<small>%</small></dd></div>
-    </dl>
-  </header>
-
-  <div class="cn-nav">
-    <nav class="cn-tabs" aria-label="Wati views">
-      <a routerLink="/app/whatsapp/wati" class="cn-tab" [class.is-on]="view() === 'send'">
-        <i class="ph-duotone ph-paper-plane-tilt" aria-hidden="true"></i> Send message
-      </a>
-      <a routerLink="/app/whatsapp/wati/report" class="cn-tab" [class.is-on]="view() === 'report'">
-        <i class="ph-duotone ph-checks" aria-hidden="true"></i> Delivered &amp; read <span class="cn-count">{{ n(store.messages().length) }}</span>
-      </a>
-    </nav>
-    <p class="wt-from">Numbers come from <a routerLink="/app/whatsapp/check-number" class="cn-link">Number Verification</a></p>
-  </div>
+  <app-wati-head [view]="view()" />
 
   <!-- ================================================================ SEND -->
   @if (view() === 'send') {
     @if (store.problem(); as message) {
       <p class="cn-alert cn-alert--bad" role="alert"><i class="ph-duotone ph-warning-circle" aria-hidden="true"></i><span>{{ message }}</span></p>
     }
-    @if (store.pool().length === 0) {
-      <div class="cn-sheet wt-none">
-        <i class="ph-duotone ph-whatsapp-logo" aria-hidden="true"></i>
-        <h2 class="cn-h">{{ loadingWati() ? 'Loading your numbers…' : 'No numbers to message yet' }}</h2>
-        <p class="cn-empty">Numbers appear here once Number Verification confirms they are on WhatsApp. Upload a list to get started.</p>
-        <a routerLink="/app/whatsapp/check-number" class="btn btn-primary btn-sm"><i class="ph-duotone ph-upload-simple" aria-hidden="true"></i> Check numbers</a>
-      </div>
-    } @else {
-      <div class="wt-compose">
 
-        <!-- 01 · template, values and name, beside the preview and the send button -->
-        <div class="wt-row2">
-          <section class="cn-sheet wt-panel wt-message" aria-label="The message">
-            <header class="wt-head">
-              <h2 id="wt-h-tpl" class="cn-h"><span class="wt-no cn-serif">01</span> Template</h2>
-              <p class="wt-count">Approved templates only</p>
-            </header>
-            <div class="wt-templates" role="radiogroup" aria-label="Message template">
-              @for (t of store.templates(); track t.name) {
-                <button type="button" role="radio" class="wt-tpl" [class.is-on]="templateName() === t.name" [attr.aria-checked]="templateName() === t.name" (click)="pickTemplate(t.name)">
-                  <span class="wt-tpl-top">
-                    <b>{{ t.label }}</b>
-                    <span class="wt-tpl-cat">{{ t.category }}</span>
-                  </span>
-                  <code class="cn-num">{{ t.name }}</code>
-                </button>
-              } @empty {
-                <p class="cn-empty">No template can be sent yet. Templates appear here once they are approved in WATI.</p>
-              }
-            </div>
+    <!-- The three steps of a send. A step you have reached can be opened again; a later one only once
+         the earlier ones allow it. -->
+    <ol class="cn-steps wt-steps" aria-label="Steps of a send">
+      <li class="cn-step" [class.is-done]="step() > 1" [class.is-now]="step() === 1">
+        @if (step() !== 1) {
+          <button type="button" class="wt-step-btn" (click)="goTo(1)" aria-label="Back to choosing numbers"></button>
+        }
+        <span class="cn-step-no cn-serif">01</span>
+        <span class="cn-step-text"><b>Numbers</b><small>{{ selectedCount() > 0 ? n(selectedCount()) + ' of at most ' + n(cap()) + ' selected' : 'Pick who to message' }}</small></span>
+        <i class="ph-duotone cn-step-state" [class.ph-check-circle]="step() > 1" [class.ph-arrow-right]="step() === 1" aria-hidden="true"></i>
+      </li>
+      <li class="cn-step" [class.is-done]="step() > 2" [class.is-now]="step() === 2">
+        @if (step() === 3) {
+          <button type="button" class="wt-step-btn" (click)="goTo(2)" aria-label="Back to the template"></button>
+        }
+        <span class="cn-step-no cn-serif">02</span>
+        <span class="cn-step-text"><b>Template</b><small>{{ step() > 1 && template().label ? template().label : 'Choose and fill the message' }}</small></span>
+        <i class="ph-duotone cn-step-state" [class.ph-check-circle]="step() > 2" [class.ph-arrow-right]="step() === 2" aria-hidden="true"></i>
+      </li>
+      <li class="cn-step" [class.is-now]="step() === 3">
+        <span class="cn-step-no cn-serif">03</span>
+        <span class="cn-step-text"><b>Review &amp; send</b><small>See who will be messaged</small></span>
+      </li>
+    </ol>
 
-            <header class="wt-head wt-head--next">
-              <h2 id="wt-h-name" class="cn-h cn-h--sub">Broadcast name <span class="ydot-req">*</span></h2>
-              <p class="wt-count">Shown in the delivery report</p>
-            </header>
-            <div class="wt-field">
-              <input id="wt-name" type="text" class="wt-input" maxlength="80" placeholder="e.g. October thank-you"
-                     [value]="broadcastName()" (input)="broadcastName.set($any($event.target).value)"
-                     [attr.aria-invalid]="touched() && nameProblem() ? true : null" aria-label="Broadcast name" />
-              <button type="button" class="cn-link" (click)="broadcastName.set(suggestion())">Use “{{ suggestion() }}”</button>
-            </div>
-            @if (touched() && nameProblem(); as problem) {
-              <p class="wt-error" role="alert"><i class="ph-duotone ph-warning-circle" aria-hidden="true"></i>{{ problem }}</p>
+    <!-- ---------------------------------------------------- 01 · numbers -->
+    @if (step() === 1) {
+      <section class="cn-sheet wt-panel" aria-labelledby="wt-h-pool">
+        <header class="wt-head">
+          <h2 id="wt-h-pool" class="cn-h"><span class="wt-no cn-serif">01</span> Validated WhatsApp numbers</h2>
+          <p class="wt-count"><b class="cn-serif">{{ n(selectedCount()) }}</b> selected · at most {{ n(cap()) }} per send</p>
+        </header>
+        <p class="wt-lead">Only the numbers you pick here are messaged. A check validates whole lists; choose the ten or fifty people this message is for{{ hasGroups() ? ', or narrow the list to a group' : '' }}.</p>
+
+        @if (composer().groupName; as groupName) {
+          <div class="wt-inset"><p class="cn-alert cn-alert--info" role="status"><i class="ph-duotone ph-users-three" aria-hidden="true"></i>
+            <span>The selection comes from the group <b>{{ groupName }}</b>; the send will say so in the send log.</span></p></div>
+        }
+
+        <div class="wt-filterbar">
+          <label class="cn-search">
+            <i class="ph-duotone ph-magnifying-glass" aria-hidden="true"></i>
+            <input type="search" placeholder="Number, name, country or check" [value]="search()" (input)="onSearch($any($event.target).value)" aria-label="Search the numbers" />
+          </label>
+          <app-wa-select compact label="All checks" [options]="jobOptions()" [value]="jobFilter()" (valueChange)="jobFilter.set($event)" />
+          <app-wa-select compact label="All countries" [options]="countryOptions()" [value]="countryFilter()" (valueChange)="countryFilter.set($event)" />
+          @if (hasGroups()) {
+            <app-wa-select compact label="All groups" [options]="groupOptions()" [value]="groupFilter()" (valueChange)="groupFilter.set($event)" />
+          }
+          @if (hasTags()) {
+            <app-wa-select compact label="All tags" [options]="tagOptions()" [value]="tagFilter()" (valueChange)="tagFilter.set($event)" />
+          }
+          @if (historyOptions().length > 0) {
+            <app-wa-select compact label="Any history" [options]="historyOptions()" [value]="historyFilter()" (valueChange)="historyFilter.set($event)" />
+          }
+          @if (filtered()) {
+            <button type="button" class="cn-link" (click)="clearFilters()">Clear filters</button>
+          }
+        </div>
+
+        <div class="wt-selbar">
+          <span class="wt-selbar-fig"><b class="cn-serif">{{ n(total()) }}</b> {{ total() === 1 ? 'number matches' : 'numbers match' }}</span>
+          <span class="wt-pick-links">
+            @if (rows().length > 0 && (pageAllChosen() || room() > 0)) {
+              <button type="button" class="cn-link" (click)="togglePage()">{{ pageAllChosen() ? 'Unselect this page' : 'Select this page' }}</button>
             }
+            @if (room() > 0 && total() > 0) {
+              <button type="button" class="cn-link" (click)="selectMatching()">{{ total() <= room() ? 'Select all ' + n(total()) : 'Select the first ' + n(room()) + ' of ' + n(total()) }}</button>
+            }
+            @if (selectedCount() > 0) {
+              <button type="button" class="cn-link" (click)="clearSelection()">Clear selection</button>
+            }
+          </span>
+          @if (selectedCount() > 0 && canOperate()) {
+            <span class="wt-selbar-act">
+              <button type="button" class="btn btn-outline-secondary btn-sm" (click)="openSave()"><i class="ph-duotone ph-floppy-disk" aria-hidden="true"></i> Save as group</button>
+              @if (editableGroups().length > 0) {
+                <button type="button" class="btn btn-outline-secondary btn-sm" (click)="openAdd()"><i class="ph-duotone ph-user-plus" aria-hidden="true"></i> Add to group</button>
+              }
+              <button type="button" class="btn btn-primary btn-sm" (click)="goTo(2)">Next: template <i class="ph-duotone ph-arrow-right" aria-hidden="true"></i></button>
+            </span>
+          }
+        </div>
 
+        @if (selectionNotice(); as message) {
+          <div class="wt-inset"><p class="cn-alert cn-alert--info" role="status"><i class="ph-duotone ph-info" aria-hidden="true"></i><span>{{ message }}</span></p></div>
+        }
+        @if (selectionProblem(); as message) {
+          <div class="wt-inset"><p class="cn-alert cn-alert--bad" role="alert"><i class="ph-duotone ph-warning-circle" aria-hidden="true"></i><span>{{ message }}</span></p></div>
+        }
+
+        @if (rows().length === 0) {
+          <div class="wt-none">
+            <i class="ph-duotone ph-whatsapp-logo" aria-hidden="true"></i>
+            @if (loadingRows()) {
+              <h2 class="cn-h">Loading your numbers…</h2>
+            } @else if (filtered()) {
+              <h2 class="cn-h">No number matches these filters</h2>
+              <button type="button" class="cn-link" (click)="clearFilters()">Clear the filters</button>
+            } @else {
+              <h2 class="cn-h">No validated numbers yet</h2>
+              <p class="cn-empty">Numbers appear here once Number Verification confirms they are on WhatsApp. Upload a list to get started.</p>
+              <a routerLink="/app/whatsapp/check-number" class="btn btn-primary btn-sm"><i class="ph-duotone ph-upload-simple" aria-hidden="true"></i> Check numbers</a>
+            }
+          </div>
+        } @else {
+          <div class="cn-scroll">
+            <table class="cn-table wt-pick">
+              <thead>
+                <tr>
+                  <th class="wt-cb">
+                    @if (pageAllChosen() || room() > 0) {
+                      <input type="checkbox" [checked]="pageAllChosen()" (change)="togglePage()" aria-label="Select every number on this page" />
+                    }
+                  </th>
+                  <th>Number</th><th>Name</th><th>Country</th><th>From check</th><th>Checked ({{ zone }})</th><th>Last messaged</th><th>Groups</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (r of rows(); track r.number) {
+                  <tr class="cn-row" [class.is-chosen]="isChosen(r.number)" (click)="(isChosen(r.number) || room() > 0) && toggle(r)">
+                    <td class="wt-cb">
+                      @if (isChosen(r.number) || room() > 0) {
+                        <input type="checkbox" [checked]="isChosen(r.number)" (click)="$event.stopPropagation()" (change)="toggle(r)" [attr.aria-label]="'Select ' + r.number" />
+                      }
+                    </td>
+                    <td class="cn-num cn-strong">{{ r.number }}</td>
+                    <td>{{ r.contactName || '—' }}</td>
+                    <td><span class="cn-iso">{{ r.iso }}</span>{{ r.country }}</td>
+                    <td class="cn-note">{{ r.fileName || r.jobNumber }}<small class="cn-num">{{ r.jobNumber }}</small></td>
+                    <td>{{ dt(r.checkedAtUtc) }}</td>
+                    <td>@if (r.lastMessagedAtUtc) { {{ dt(r.lastMessagedAtUtc) }}<small>{{ r.lastTemplateName }}{{ r.messagesSent > 1 ? ' · ' + n(r.messagesSent) + ' messages' : '' }}</small> } @else { <span class="wt-dash">Never</span> }</td>
+                    <td>
+                      @if (r.groups.length > 0) {
+                        <span class="wt-chips">@for (g of r.groups; track g) { <span class="wt-chip">{{ g }}</span> }</span>
+                      } @else { <span class="wt-dash">—</span> }
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+          <app-wa-pager [total]="total()" [page]="page()" [size]="pageSize()" [sizes]="[10, 25, 50, 100]"
+                        (pageChange)="page.set($event)" (sizeChange)="pageSize.set($event); page.set(1)" />
+        }
+      </section>
+
+      @if (selectedCount() > 0) {
+        <section class="cn-sheet wt-panel" aria-labelledby="wt-h-chosen">
+          <header class="wt-head">
+            <h2 id="wt-h-chosen" class="cn-h cn-h--sub">Selected for this send <span class="cn-h-note">{{ n(selectedCount()) }} of at most {{ n(cap()) }}</span></h2>
+          </header>
+          <ul class="wt-chips wt-chips--sel" aria-label="Selected numbers">
+            @for (s of store.selectionList(); track s.number) {
+              <li class="wt-chip wt-chip--sel">
+                <span><b class="cn-num">{{ s.number }}</b>@if (s.contactName) { <small>{{ s.contactName }}</small> }</span>
+                <button type="button" class="wt-chip-x" (click)="remove(s.number)" [attr.aria-label]="'Remove ' + s.number"><i class="ph-duotone ph-x" aria-hidden="true"></i></button>
+              </li>
+            }
+          </ul>
+        </section>
+      }
+    }
+
+    <!-- ---------------------------------------------------- 02 · template -->
+    @if (step() === 2) {
+      <div class="wt-row2">
+        <section class="cn-sheet wt-panel wt-message" aria-label="The message">
+          <header class="wt-head">
+            <h2 class="cn-h"><span class="wt-no cn-serif">02</span> Template</h2>
+            <p class="wt-count">Approved in WATI</p>
+          </header>
+          <div class="wt-templates" role="radiogroup" aria-label="Message template">
+            @for (t of store.templates(); track t.name) {
+              <button type="button" role="radio" class="wt-tpl" [class.is-on]="composer().templateName === t.name" [attr.aria-checked]="composer().templateName === t.name" (click)="pickTemplate(t.name)">
+                <span class="wt-tpl-top">
+                  <b>{{ t.label }}</b>
+                  <span class="wt-tpl-cat">{{ t.category }}{{ t.headerFormat === 'IMAGE' ? ' · image' : '' }}</span>
+                </span>
+                <code class="cn-num">{{ t.name }}</code>
+              </button>
+            } @empty {
+              <p class="cn-empty">No template can be sent yet. Templates appear here once they are approved in WATI.</p>
+            }
+          </div>
+
+          @if (template().variables.length > 0) {
             <header class="wt-head wt-head--next">
-              <h2 id="wt-h-val" class="cn-h cn-h--sub">Template values <span class="ydot-req">*</span></h2>
-              <p class="wt-count">Same for every recipient</p>
+              <h2 class="cn-h cn-h--sub">Template values <span class="ydot-req">*</span></h2>
+              <p class="wt-count">Typed once, or taken from each recipient</p>
             </header>
-            <div class="wt-values">
+            <div class="wt-values wt-values--bind">
               @for (v of template().variables; track v) {
-                <label class="wt-value">
-                  <span class="cn-label"><code class="cn-num">{{ tag(v) }}</code></span>
-                  <input type="text" class="wt-input" [value]="values()[v]" (input)="setValue(v, $any($event.target).value)"
-                         [attr.aria-invalid]="touched() && !values()[v].trim() ? true : null" [attr.aria-label]="'Value for ' + v" />
-                </label>
+                <div class="wt-value">
+                  <span class="cn-label"><code class="cn-num">{{ tag(v) }}</code>@if (v === template().mediaVariable) { <small class="wt-inline">header picture</small> }</span>
+                  <app-wa-select compact [label]="'Typed value'" [options]="valueSources" [value]="sourceOf(v)" (valueChange)="setSource(v, $event)" />
+                  <input type="text" class="wt-input" [value]="composer().values[v] || ''" (input)="setValue(v, $any($event.target).value)"
+                         [placeholder]="sourceOf(v) === 'value' ? 'Value for every recipient' : 'Used when a recipient has none, e.g. Friend'"
+                         [attr.aria-invalid]="touched() && sourceOf(v) === 'value' && !composer().values[v]?.trim() ? true : null" [attr.aria-label]="'Value for ' + v" />
+                </div>
               }
             </div>
             @if (touched() && missingValues().length > 0) {
               <p class="wt-error" role="alert"><i class="ph-duotone ph-warning-circle" aria-hidden="true"></i>Fill in {{ missingValues().join(', ') }}.</p>
             }
-          </section>
+          }
 
-          <aside class="cn-sheet wt-side" aria-label="Preview and send">
-            <p class="cn-label">Preview</p>
-            <div class="wt-phone" aria-label="Message preview">
-              <div class="wt-phone-bar">
-                <i class="ph-duotone ph-caret-left" aria-hidden="true"></i>
-                <span class="wt-phone-name"><b>{{ organisationName() }}</b><small>Business account</small></span>
-                <i class="ph-duotone ph-whatsapp-logo" aria-hidden="true"></i>
-              </div>
-              <div class="wt-chat">
-                <p class="wt-bubble">@for (p of preview(); track $index) {<span [class.wt-var]="!!p.variable" [class.is-empty]="!!p.variable && !p.filled">{{ p.text }}</span>}
-                  <small class="wt-bubble-time">now <i class="ph-duotone ph-checks" aria-hidden="true"></i></small>
-                </p>
-              </div>
-            </div>
-
-            <dl class="wt-sum">
-              <div><dt>Recipients</dt><dd class="cn-serif">{{ n(selected().size) }}</dd></div>
-              <div><dt>Template</dt><dd>{{ template().label }}</dd></div>
-              <div><dt>Broadcast</dt><dd>{{ broadcastName().trim() || '—' }}</dd></div>
-            </dl>
-            @if (blockers().length > 0 && touched()) {
-              <ul class="wt-todo" role="alert">
-                @for (b of blockers(); track b) { <li><i class="ph-duotone ph-circle-dashed" aria-hidden="true"></i>{{ b }}</li> }
-              </ul>
-            }
-            <button type="button" class="btn btn-primary btn-sm wt-go" (click)="review()">
-              <i class="ph-duotone ph-paper-plane-tilt" aria-hidden="true"></i>
-              Send to {{ n(selected().size) }} {{ selected().size === 1 ? 'recipient' : 'recipients' }}
-            </button>
-            <p class="wt-fine">You’ll confirm before anything is sent. Delivery is tracked live in the report. {{ safeguards() }}</p>
-          </aside>
-        </div>
-
-        <!-- 01 · recipients: full width, so the number table uses the whole page -->
-        <section class="cn-sheet wt-panel" aria-labelledby="wt-h-rec">
-          <header class="wt-head">
-            <h2 id="wt-h-rec" class="cn-h"><span class="wt-no cn-serif">02</span> Recipients</h2>
-            <p class="wt-count"><b class="cn-serif">{{ n(selected().size) }}</b> of {{ n(store.pool().length) }} chosen</p>
+          <header class="wt-head wt-head--next">
+            <h2 class="cn-h cn-h--sub">Send name <span class="ydot-req">*</span></h2>
+            <p class="wt-count">How it is found in the send log</p>
           </header>
+          <div class="wt-field">
+            <input type="text" class="wt-input" maxlength="80" placeholder="e.g. October thank-you"
+                   [value]="composer().broadcastName" (input)="setName($any($event.target).value)"
+                   [attr.aria-invalid]="touched() && nameProblem() ? true : null" aria-label="Send name" />
+            <button type="button" class="cn-link" (click)="setName(suggestion())">Use “{{ suggestion() }}”</button>
+          </div>
+          @if (touched() && nameProblem(); as problem) {
+            <p class="wt-error" role="alert"><i class="ph-duotone ph-warning-circle" aria-hidden="true"></i>{{ problem }}</p>
+          }
 
-          <div class="wt-rec-tools">
-            <ul class="wt-batches" aria-label="Choose a whole check at once">
-              @for (b of batches(); track b.jobId) {
-                <li>
-                  <button type="button" class="wt-batch" [class.is-on]="b.chosen === b.total" [class.is-part]="b.chosen > 0 && b.chosen < b.total"
-                          (click)="toggleBatch(b)" [attr.aria-pressed]="b.chosen === b.total">
-                    <i class="ph-duotone" [class.ph-check-circle]="b.chosen === b.total" [class.ph-circle]="b.chosen === 0" [class.ph-minus-circle]="b.chosen > 0 && b.chosen < b.total" aria-hidden="true"></i>
-                    <span class="wt-batch-text">
-                      <b>{{ b.file }}</b>
-                      <small>{{ n(b.total) }} numbers{{ b.chosen > 0 ? ' · ' + n(b.chosen) + ' chosen' : '' }}</small>
-                    </span>
-                  </button>
-                </li>
+          <header class="wt-head wt-head--next">
+            <h2 class="cn-h cn-h--sub">Campaign and tags</h2>
+            <p class="wt-count">Optional · kept with the send for reporting</p>
+          </header>
+          <div class="wt-values">
+            <label class="wt-value">
+              <span class="cn-label">Campaign</span>
+              <app-wa-select compact label="No campaign" [options]="campaignOptions()" [value]="composer().campaignId ?? 'none'" (valueChange)="setCampaign($event)" />
+            </label>
+            <label class="wt-value">
+              <span class="cn-label">Tags, separated by commas</span>
+              <input type="text" class="wt-input" placeholder="e.g. diwali, chennai" [value]="tagsText()" (input)="setTags($any($event.target).value)" aria-label="Tags" />
+            </label>
+          </div>
+
+          <div class="wt-stepnav">
+            <button type="button" class="btn btn-outline-secondary btn-sm" (click)="goTo(1)"><i class="ph-duotone ph-arrow-left" aria-hidden="true"></i> Numbers</button>
+            @if (template().name) {
+              <button type="button" class="btn btn-primary btn-sm" (click)="goTo(3)">Review the send <i class="ph-duotone ph-arrow-right" aria-hidden="true"></i></button>
+            }
+          </div>
+        </section>
+
+        <aside class="cn-sheet wt-side" aria-label="Preview">
+          <div class="wt-prev-head">
+            <p class="cn-label">Preview</p>
+            @if (previewAsOptions().length > 1) {
+              <app-wa-select compact label="Preview as" [options]="previewAsOptions()" [value]="previewRecipient()?.number ?? ''" (valueChange)="previewAs.set($event)" />
+            }
+          </div>
+          <div class="wt-phone" aria-label="Message preview">
+            <div class="wt-phone-bar">
+              <i class="ph-duotone ph-caret-left" aria-hidden="true"></i>
+              <span class="wt-phone-name"><b>{{ organisationName() }}</b><small>Business account</small></span>
+              <i class="ph-duotone ph-whatsapp-logo" aria-hidden="true"></i>
+            </div>
+            <div class="wt-chat">
+              <div class="wt-bubble">
+                @if (template().headerFormat === 'IMAGE') {
+                  @if (mediaUrl() && !mediaBroken()) {
+                    <img class="wt-media" [src]="mediaUrl()" alt="The picture at the top of the message" (error)="mediaBroken.set(true)" />
+                  } @else {
+                    <span class="wt-media wt-media--empty"><i class="ph-duotone ph-image" aria-hidden="true"></i>{{ mediaUrl() ? 'The picture could not be shown from this link' : 'Picture: fill ' + tag(template().mediaVariable ?? 'image_url') }}</span>
+                  }
+                } @else if (template().headerFormat === 'VIDEO' || template().headerFormat === 'DOCUMENT') {
+                  <span class="wt-media wt-media--empty"><i class="ph-duotone" [class.ph-video]="template().headerFormat === 'VIDEO'" [class.ph-file-pdf]="template().headerFormat === 'DOCUMENT'" aria-hidden="true"></i>{{ template().headerFormat === 'VIDEO' ? 'Video' : 'Document' }} at the top</span>
+                } @else if (headerText()) {
+                  <b class="wt-head-text">{{ headerText() }}</b>
+                }
+                <p class="wt-bubble-body">@for (p of preview(); track $index) {<span [class.wt-var]="!!p.variable" [class.is-empty]="!!p.variable && !p.filled">{{ p.text }}</span>}</p>
+                @if (template().footer) { <small class="wt-footer">{{ template().footer }}</small> }
+                <small class="wt-bubble-time">now <i class="ph-duotone ph-checks" aria-hidden="true"></i></small>
+              </div>
+              @if (template().buttons.length > 0) {
+                <ul class="wt-buttons">@for (b of template().buttons; track $index) { <li><i class="ph-duotone ph-arrow-square-out" aria-hidden="true"></i>{{ b }}</li> }</ul>
               }
-            </ul>
-            <div class="wt-pick-tools">
-              <label class="cn-search">
-                <i class="ph-duotone ph-magnifying-glass" aria-hidden="true"></i>
-                <input type="search" placeholder="Search number or country" [value]="pickQuery()" (input)="pickQuery.set($any($event.target).value)" aria-label="Search recipients" />
-              </label>
-              <app-wa-select compact label="All checks" [options]="sourceOptions()" [value]="pickSource()" (valueChange)="pickSource.set($event)" />
-              <span class="wt-pick-links">
-                <button type="button" class="cn-link" (click)="selectMatching()" [disabled]="pickRows().length === 0 || matchingChosen() === pickRows().length">Select all {{ n(pickRows().length) }}</button>
-                <button type="button" class="cn-link" (click)="clearSelection()" [disabled]="selected().size === 0">Clear</button>
-              </span>
             </div>
           </div>
 
-          @if (pickRows().length === 0) {
-            <p class="cn-empty">No number matches your search.</p>
+          <dl class="wt-sum">
+            <div><dt>Recipients</dt><dd class="cn-serif">{{ n(selectedCount()) }}</dd></div>
+            <div><dt>Preview shown as</dt><dd>{{ previewRecipient()?.contactName || previewRecipient()?.number || '—' }}</dd></div>
+            <div><dt>Template</dt><dd>{{ template().label || '—' }}</dd></div>
+            @if (composer().campaignId) { <div><dt>Campaign</dt><dd>{{ campaignName(composer().campaignId) }}</dd></div> }
+          </dl>
+          <p class="wt-fine">Coloured words are filled per recipient. A recipient whose file gave no name gets the value you typed beside it.</p>
+        </aside>
+      </div>
+    }
+
+    <!-- ---------------------------------------------------- 03 · review and send -->
+    @if (step() === 3) {
+      <section class="cn-sheet wt-panel" aria-labelledby="wt-h-review">
+        <header class="wt-head">
+          <h2 id="wt-h-review" class="cn-h"><span class="wt-no cn-serif">03</span> Review &amp; send</h2>
+          @if (!reviewing()) {
+            <button type="button" class="cn-link" (click)="runReview()"><i class="ph-duotone ph-arrow-clockwise" aria-hidden="true"></i> Check again</button>
+          }
+        </header>
+
+        @if (reviewing()) {
+          <p class="cn-empty"><i class="ph-duotone ph-circle-notch cn-spinning" aria-hidden="true"></i> Applying the sending rules to your selection…</p>
+        } @else if (reviewProblem(); as message) {
+          <div class="wt-inset"><p class="cn-alert cn-alert--bad" role="alert"><i class="ph-duotone ph-warning-circle" aria-hidden="true"></i><span>{{ message }}</span></p></div>
+        } @else if (review(); as r) {
+          <dl class="wt-figs">
+            <div><dt>Selected</dt><dd class="cn-serif">{{ n(r.summary.selected) }}</dd></div>
+            <div class="wt-fig--ok"><dt>Will be sent</dt><dd class="cn-serif">{{ n(r.summary.willSend) }}</dd></div>
+            <div class="wt-fig--warn"><dt>Skipped</dt><dd class="cn-serif">{{ n(r.summary.willSkip) }}</dd></div>
+            <div class="wt-fig--bad"><dt>Left out</dt><dd class="cn-serif">{{ n(r.summary.excluded) }}</dd></div>
+          </dl>
+
+          <div class="wt-inset wt-stack">
+            @for (problem of r.summary.problems; track problem) {
+              <p class="cn-alert cn-alert--bad" role="alert"><i class="ph-duotone ph-warning-circle" aria-hidden="true"></i><span>{{ problem }}</span></p>
+            }
+            @if (r.summary.allowListActive) {
+              <p class="cn-alert cn-alert--info" role="note"><i class="ph-duotone ph-shield-check" aria-hidden="true"></i>
+                <span><b>Test allow-list is on in the integration worker.</b> Only its {{ n(r.summary.allowListSize) }} allow-listed {{ r.summary.allowListSize === 1 ? 'number' : 'numbers' }} can be messaged; any other selected number will be recorded as skipped (NOT_IN_ALLOWLIST).</span></p>
+            }
+            @if (reasons().length > 0) {
+              <p class="wt-reasons">@for (x of reasons(); track x.code) { <span class="wt-chip"><code class="cn-num">{{ x.code }}</code> {{ n(x.total) }}</span> }</p>
+            }
+          </div>
+
+          <div class="cn-bar-tools">
+            <div class="cn-filters" role="tablist" aria-label="Filter the review">
+              @for (f of [['all','All'],['send','Will be sent'],['skip','Skipped'],['exclude','Left out']]; track f[0]) {
+                <button type="button" role="tab" class="cn-filter" [class.is-on]="reviewFilter() === f[0]" [attr.aria-selected]="reviewFilter() === f[0]" (click)="reviewFilter.set($any(f[0]))">
+                  {{ f[1] }} <span class="cn-count">{{ n(reviewCount($any(f[0]))) }}</span>
+                </button>
+              }
+            </div>
+          </div>
+
+          @if (reviewRows().length === 0) {
+            <p class="cn-empty">Nothing here.</p>
           } @else {
             <div class="cn-scroll">
-            <table class="cn-table wt-pick">
-              <thead>
-                <tr>
-                  <th class="wt-cb"><input type="checkbox" [checked]="pageAllChosen()" (change)="togglePage()" aria-label="Select every number on this page" /></th>
-                  <th>Number</th><th>Country</th><th>WhatsApp</th><th>From check</th><th>Checked ({{ zone }})</th>
-                </tr>
-              </thead>
-              <tbody>
-                @for (e of pickSlice(); track e.number) {
-                  <tr class="cn-row" [class.is-chosen]="isChosen(e.number)" (click)="toggle(e.number)">
-                    <td class="wt-cb"><input type="checkbox" [checked]="isChosen(e.number)" (click)="$event.stopPropagation()" (change)="toggle(e.number)" [attr.aria-label]="'Select ' + e.number" /></td>
-                    <td class="cn-num cn-strong">{{ e.number }}</td>
-                    <td><span class="cn-iso">{{ e.iso }}</span>{{ e.country }}</td>
-                    <td><span class="cn-res cn-res--yes"><i class="ph-duotone ph-check-circle" aria-hidden="true"></i>Yes</span></td>
-                    <td class="cn-note">{{ e.fileName || e.jobId }}</td>
-                    <td>{{ dt(e.checkedAt) }}</td>
-                  </tr>
-                }
-              </tbody>
-            </table>
+              <table class="cn-table wt-review">
+                <thead><tr><th>Number</th><th>Name</th><th>From check</th><th>Outcome</th><th>The message they will read</th></tr></thead>
+                <tbody>
+                  @for (x of reviewSlice(); track x.number) {
+                    <tr>
+                      <td class="cn-num cn-strong">{{ x.number }}</td>
+                      <td>{{ x.contactName || '—' }}</td>
+                      <td class="cn-num">{{ x.sourceJobNumber || '—' }}</td>
+                      <td>
+                        <span class="wt-out wt-out--{{ x.outcome }}">{{ outcomeLabel(x) }}</span>
+                        @if (x.reasonText) { <small>{{ x.reasonText }}</small> }
+                      </td>
+                      <td class="wt-msgcell">{{ x.outcome === 'send' ? (x.renderedText || '—') : '—' }}</td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
             </div>
-            <app-wa-pager [total]="pickRows().length" [page]="pickPage()" [size]="pickSize()" [sizes]="[10, 25, 50, 100]"
-                          (pageChange)="pickPage.set($event)" (sizeChange)="pickSize.set($event); pickPage.set(1)" />
+            <app-wa-pager [total]="reviewRows().length" [page]="reviewPage()" [size]="reviewSize()" [sizes]="[10, 25, 50]"
+                          (pageChange)="reviewPage.set($event)" (sizeChange)="reviewSize.set($event); reviewPage.set(1)" />
           }
-        </section>
+        }
 
-      </div>
+        <div class="wt-stepnav">
+          <button type="button" class="btn btn-outline-secondary btn-sm" (click)="goTo(2)"><i class="ph-duotone ph-arrow-left" aria-hidden="true"></i> Template</button>
+          @if (canSend()) {
+            <button type="button" class="btn btn-primary btn-sm" (click)="confirming.set(true)">
+              <i class="ph-duotone ph-paper-plane-tilt" aria-hidden="true"></i> Send to {{ n(review()!.summary.willSend) }} {{ review()!.summary.willSend === 1 ? 'number' : 'numbers' }}
+            </button>
+          }
+        </div>
+      </section>
     }
   }
 
   <!-- ================================================================ REPORT -->
   @if (view() === 'report') {
 
-    @if (sendNotice(); as message) {
-      <p class="cn-alert cn-alert--info" role="status"><i class="ph-duotone ph-paper-plane-tilt" aria-hidden="true"></i><span>{{ message }}</span></p>
-    }
     @if (store.problem(); as message) {
       <p class="cn-alert cn-alert--bad" role="alert"><i class="ph-duotone ph-warning-circle" aria-hidden="true"></i><span>{{ message }}</span></p>
     }
@@ -214,7 +399,7 @@
         <h2 class="cn-h">Delivery funnel <span class="cn-h-note">{{ n(counts().all) }} messages</span></h2>
         <div class="wt-fun-tools">
           @if (live()) { <span class="wt-live" role="status"><span class="cn-live-dot" aria-hidden="true"></span> Updating live</span> }
-          <app-wa-select compact label="All broadcasts" [options]="broadcastOptions()" [value]="broadcastFilter()" (valueChange)="broadcastFilter.set($event)" />
+          <app-wa-select compact label="All sends" [options]="broadcastOptions()" [value]="broadcastFilter()" (valueChange)="broadcastFilter.set($event)" />
           <app-wa-select compact label="All templates" [options]="templateOptions()" [value]="templateFilter()" (valueChange)="templateFilter.set($event)" />
         </div>
       </header>
@@ -250,19 +435,21 @@
         </div>
         <label class="cn-search">
           <i class="ph-duotone ph-magnifying-glass" aria-hidden="true"></i>
-          <input type="search" placeholder="Number or broadcast" [value]="reportQuery()" (input)="reportQuery.set($any($event.target).value)" aria-label="Search the report" />
+          <input type="search" placeholder="Number, name or send" [value]="reportQuery()" (input)="reportQuery.set($any($event.target).value)" aria-label="Search the report" />
         </label>
-        <button type="button" class="btn btn-outline-secondary btn-sm" (click)="exportCsv()" [disabled]="reportRows().length === 0">
-          <i class="ph-duotone ph-download-simple" aria-hidden="true"></i> Export CSV
-        </button>
+        @if (reportRows().length > 0) {
+          <button type="button" class="btn btn-outline-secondary btn-sm" (click)="exportCsv()">
+            <i class="ph-duotone ph-download-simple" aria-hidden="true"></i> Export CSV
+          </button>
+        }
       </div>
 
       @if (reportRows().length === 0) {
         <p class="cn-empty">
-          @if (store.messages().length === 0) { No messages yet. Send a template to see its delivery here. }
+          @if (store.messages().length === 0) { {{ loadingWati() ? 'Loading the messages…' : 'No messages yet. Pick numbers and send a template to see its delivery here.' }} }
           @else { No messages match these filters. }
         </p>
-        @if (store.messages().length === 0) {
+        @if (store.messages().length === 0 && !loadingWati()) {
           <p class="wt-empty-act"><a routerLink="/app/whatsapp/wati" class="btn btn-primary btn-sm"><i class="ph-duotone ph-paper-plane-tilt" aria-hidden="true"></i> Send a message</a></p>
         }
       } @else {
@@ -270,14 +457,14 @@
           <table class="cn-table wt-report">
             <thead>
               <tr>
-                <th>Number</th><th>WhatsApp check</th><th>Template</th><th>Broadcast</th><th>Status</th>
+                <th>Number</th><th>WhatsApp check</th><th>Template</th><th>Send</th><th>Status</th>
                 <th>Sent</th><th>Delivered</th><th>Read</th><th>Replied</th><th>Read?</th><th>Failure</th>
               </tr>
             </thead>
             <tbody>
               @for (m of reportSlice(); track m.id) {
                 <tr class="cn-row" tabindex="0" (click)="open(m)" (keydown.enter)="open(m)">
-                  <td><span class="cn-num cn-strong">{{ m.number }}</span><small>{{ m.country }}</small></td>
+                  <td><span class="cn-num cn-strong">{{ m.number }}</span><small>{{ m.contactName || m.country }}</small></td>
                   <td>
                     <span class="cn-res" [class.cn-res--yes]="m.whatsappCheck === 'yes'" [class.cn-res--no]="m.whatsappCheck === 'no'" [class.cn-res--unk]="m.whatsappCheck === 'unknown'">
                       <i class="ph-duotone" [class.ph-check-circle]="m.whatsappCheck === 'yes'" [class.ph-x-circle]="m.whatsappCheck === 'no'" [class.ph-question]="m.whatsappCheck === 'unknown'" aria-hidden="true"></i>{{ m.whatsappCheck === 'yes' ? 'Yes' : m.whatsappCheck === 'no' ? 'No' : 'Unknown' }}
@@ -303,7 +490,7 @@
                       (pageChange)="reportPage.set($event)" (sizeChange)="reportSize.set($event); reportPage.set(1)" />
       }
     </section>
-    <p class="wt-zone">All times are shown in your local time zone ({{ zone }}). Click a row for the full detail.</p>
+    <p class="wt-zone">All times are shown in your local time zone ({{ zone }}). Click a row for the full detail · read rate across every send: {{ readRate() }}%.</p>
   }
 </section>
 </div>
@@ -312,29 +499,81 @@
 
 <!-- Pop-ups sit outside the page container so they are not trapped under the top bar. -->
 
-<app-popup [open]="confirming()" kicker="Wati broadcast" title="Send this message?"
+<app-popup [open]="confirming()" kicker="WhatsApp send" title="Send this message?"
            icon="ph-duotone ph-paper-plane-tilt" size="md" (closed)="confirming.set(false)">
-  <dl class="yp-facts">
-    <div><dt>Recipients</dt><dd>{{ n(selected().size) }} {{ selected().size === 1 ? 'number' : 'numbers' }} on WhatsApp</dd></div>
-    <div><dt>Template</dt><dd>{{ template().label }} · {{ template().name }}</dd></div>
-    <div><dt>Broadcast</dt><dd>{{ broadcastName().trim() }}</dd></div>
-  </dl>
-  <p class="wt-confirm-msg">{{ previewText() }}</p>
-  @if (safeguards(); as line) {
-    <p class="wt-fine">{{ line }}</p>
+  @if (review(); as r) {
+    <dl class="yp-facts">
+      <div><dt>Will be sent to</dt><dd>{{ n(r.summary.willSend) }} {{ r.summary.willSend === 1 ? 'number' : 'numbers' }} you selected</dd></div>
+      @if (r.summary.willSkip + r.summary.excluded > 0) {
+        <div><dt>Not sent</dt><dd>{{ n(r.summary.willSkip) }} skipped, {{ n(r.summary.excluded) }} left out - each with its reason in the send log</dd></div>
+      }
+      <div><dt>Template</dt><dd>{{ template().label }} · {{ template().name }}</dd></div>
+      <div><dt>Send name</dt><dd>{{ composer().broadcastName.trim() }}</dd></div>
+      @if (composer().groupName) { <div><dt>From group</dt><dd>{{ composer().groupName }}</dd></div> }
+      @if (composer().tags.length > 0) { <div><dt>Tags</dt><dd>{{ composer().tags.join(', ') }}</dd></div> }
+    </dl>
+    @if (r.summary.allowListActive) {
+      <p class="wt-fine">The worker's test allow-list is on: only allow-listed numbers will actually be messaged.</p>
+    }
   }
   @if (sendProblem(); as message) {
     <p class="cn-alert cn-alert--bad" role="alert"><i class="ph-duotone ph-warning-circle" aria-hidden="true"></i><span><b>Not sent.</b> {{ message }}</span></p>
   }
   <ng-container popupActions>
-    <button type="button" class="btn btn-outline-secondary btn-sm" [disabled]="sending()" (click)="confirming.set(false)">Go back</button>
-    <button type="button" class="btn btn-primary btn-sm" [disabled]="sending()" (click)="send()">{{ sending() ? 'Sending…' : 'Send now' }}</button>
+    @if (!sending()) {
+      <button type="button" class="btn btn-outline-secondary btn-sm" (click)="confirming.set(false)">Go back</button>
+    }
+    <button type="button" class="btn btn-primary btn-sm" (click)="send()">{{ sending() ? 'Sending…' : 'Send now' }}</button>
+  </ng-container>
+</app-popup>
+
+<app-popup [open]="saveOpen()" kicker="Recipient group" title="Save the selection as a group"
+           icon="ph-duotone ph-floppy-disk" size="md" (closed)="saveOpen.set(false)">
+  <p class="wt-fine wt-left">{{ n(selectedCount()) }} selected {{ selectedCount() === 1 ? 'number' : 'numbers' }} will be kept under this name. Each keeps the check it was picked from.</p>
+  <div class="wt-form">
+    <label class="wt-value"><span class="cn-label">Name <span class="ydot-req">*</span></span>
+      <input type="text" class="wt-input" maxlength="120" [value]="saveName()" (input)="saveName.set($any($event.target).value)" placeholder="e.g. Chennai repeat donors" aria-label="Group name" /></label>
+    <label class="wt-value"><span class="cn-label">Description</span>
+      <input type="text" class="wt-input" maxlength="500" [value]="saveDescription()" (input)="saveDescription.set($any($event.target).value)" aria-label="Description" /></label>
+    <label class="wt-value"><span class="cn-label">Campaign</span>
+      <app-wa-select compact label="No campaign" [options]="campaignOptions()" [value]="saveCampaign()" (valueChange)="saveCampaign.set($event)" /></label>
+    <label class="wt-value"><span class="cn-label">Tags, separated by commas</span>
+      <input type="text" class="wt-input" [value]="saveTags()" (input)="saveTags.set($any($event.target).value)" placeholder="e.g. diwali, chennai" aria-label="Tags" /></label>
+  </div>
+  @if (groupProblem(); as message) {
+    <p class="cn-alert cn-alert--bad" role="alert"><i class="ph-duotone ph-warning-circle" aria-hidden="true"></i><span>{{ message }}</span></p>
+  }
+  <ng-container popupActions>
+    @if (!groupBusy()) {
+      <button type="button" class="btn btn-outline-secondary btn-sm" (click)="saveOpen.set(false)">Cancel</button>
+    }
+    @if (saveName().trim().length >= 3) {
+      <button type="button" class="btn btn-primary btn-sm" (click)="saveGroup()">{{ groupBusy() ? 'Saving…' : 'Save group' }}</button>
+    }
+  </ng-container>
+</app-popup>
+
+<app-popup [open]="addOpen()" kicker="Recipient group" title="Add the selection to a group"
+           icon="ph-duotone ph-user-plus" size="md" (closed)="addOpen.set(false)">
+  <p class="wt-fine wt-left">{{ n(selectedCount()) }} selected {{ selectedCount() === 1 ? 'number' : 'numbers' }} will be added. Numbers already in the group stay as they are.</p>
+  <label class="wt-value"><span class="cn-label">Group</span>
+    <app-wa-select compact label="Choose a group" [options]="groupPickOptions()" [value]="addGroupId()" (valueChange)="addGroupId.set($event)" /></label>
+  @if (groupProblem(); as message) {
+    <p class="cn-alert cn-alert--bad" role="alert"><i class="ph-duotone ph-warning-circle" aria-hidden="true"></i><span>{{ message }}</span></p>
+  }
+  <ng-container popupActions>
+    @if (!groupBusy()) {
+      <button type="button" class="btn btn-outline-secondary btn-sm" (click)="addOpen.set(false)">Cancel</button>
+    }
+    @if (addGroupId()) {
+      <button type="button" class="btn btn-primary btn-sm" (click)="addToGroup()">{{ groupBusy() ? 'Adding…' : 'Add to group' }}</button>
+    }
   </ng-container>
 </app-popup>
 
 <app-popup [open]="!!detail()" mode="drawer" size="md" icon="ph-duotone ph-chat-circle-dots"
            [kicker]="detail() ? 'Message · ' + statusLabel[detail()!.status] : ''" [title]="detail()?.number ?? ''"
-           [lead]="detail() ? detail()!.country + ' · ' + detail()!.broadcastName : ''" (closed)="detailId.set(null)">
+           [lead]="detail() ? (detail()!.contactName || detail()!.country) + ' · ' + detail()!.broadcastName : ''" (closed)="detailId.set(null)">
   @if (detail(); as m) {
     <div class="wt-detail">
       <ol class="wt-journey" aria-label="Journey">
@@ -355,9 +594,12 @@
 
       <dl class="yp-facts">
         <div><dt>Number</dt><dd class="cn-num">{{ m.number }}</dd></div>
+        @if (m.contactName) { <div><dt>Name</dt><dd>{{ m.contactName }}</dd></div> }
         <div><dt>WhatsApp check</dt><dd>{{ m.whatsappCheck === 'yes' ? 'Yes — on WhatsApp' : m.whatsappCheck === 'no' ? 'No' : 'Unknown' }}</dd></div>
+        @if (m.sourceJob) { <div><dt>Picked from check</dt><dd class="cn-num">{{ m.sourceJob }}</dd></div> }
+        @if (m.checkNumberTask) { <div><dt>CheckNumber.ai task</dt><dd class="cn-num">{{ m.checkNumberTask }}</dd></div> }
         <div><dt>Template</dt><dd>{{ m.templateLabel }}<small class="cn-num">{{ m.templateName }}</small></dd></div>
-        <div><dt>Broadcast</dt><dd>{{ m.broadcastName }}</dd></div>
+        <div><dt>Send</dt><dd>{{ m.broadcastName }}</dd></div>
         <div><dt>Status</dt><dd><span class="wt-st wt-st--{{ m.status }}">{{ statusLabel[m.status] }}</span></dd></div>
         <div><dt>Read?</dt><dd>{{ readLabel(m) }}</dd></div>
       </dl>

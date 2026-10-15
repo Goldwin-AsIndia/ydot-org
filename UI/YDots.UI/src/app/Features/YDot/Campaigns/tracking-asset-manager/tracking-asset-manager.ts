@@ -17,6 +17,7 @@ import { CampaignApiService } from '../../../../Service/campaign-api.service';
 
 import { RowsPerPage } from '../../../../Shared/components/rows-per-page/rows-per-page';
 import { nowLabel, viewerTimeZone } from '../../../../Shared/services/clock';
+import { formatMoney } from '../../../../Shared/services/money-format';
 /** One row of a CAM reference catalogue: the id the API takes, and the name a person reads. */
 interface CatalogueOption {
   readonly ref: string;
@@ -2195,9 +2196,9 @@ export class TrackingAssetManagerComponent {
   protected formatUsage(value: number): string {
     return value.toLocaleString('en-IN');
   }
-  /** Total money received for an asset, formatted in Indian rupees. */
+  /** Total money received for an asset, in the platform's money format. */
   protected formatMoney(value: number | undefined): string {
-    return '₹' + (value ?? 0).toLocaleString('en-IN');
+    return formatMoney(value ?? 0);
   }
   protected statusClass(status: AssetStatus): string {
     switch (status) {

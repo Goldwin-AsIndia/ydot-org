@@ -19,6 +19,7 @@ import { apiErrorMessage } from '../../../../Shared/models/api-response.model';
 import { PageHeader } from '../../../../Shared/components/page-header/page-header';
 
 import { RowsPerPage } from '../../../../Shared/components/rows-per-page/rows-per-page';
+import { currencyMark, formatMoney } from '../../../../Shared/services/money-format';
 /** Field labels used verbatim in the validation copy. */
 const FIELD_LABELS: Record<string, string> = {
   campaign: 'Campaign',
@@ -228,9 +229,13 @@ export class BudgetTargetPlanComponent {
   }
 
   // ================= Summary (approved-only, no double counting) =================
+  /** A plan figure in the platform's money format: whole units, as a plan is set in them. */
   protected formatAmount(value: number): string {
-    return '₹' + value.toLocaleString('en-IN');
+    return formatMoney(value ?? 0, null, { style: 'whole' });
   }
+
+  /** "₹" or "INR", per the platform setting, for the amount fields' labels. */
+  protected readonly currencyMark = currencyMark;
 
   private approvedVersions(): PlanVersion[] {
     return this.store
@@ -249,17 +254,13 @@ export class BudgetTargetPlanComponent {
     return this.plans.filter((p) => p.approvalState === 'Draft').length;
   }
 
-  private compactCurrency(total: number): string {
-    if (total >= 10000000) return '₹' + (total / 10000000).toFixed(1) + ' Cr';
-    return '₹' + (total / 100000).toFixed(1) + ' L';
-  }
   /** Total Target — sum of the CURRENT APPROVED version of each plan only. */
   protected formatTotalAmount(): string {
-    return this.compactCurrency(this.approvedVersions().reduce((s, v) => s + v.targetAmount, 0));
+    return this.formatAmount(this.approvedVersions().reduce((s, v) => s + v.targetAmount, 0));
   }
   /** Total Budget — sum of the CURRENT APPROVED version of each plan only. */
   protected getTotalBudget(): string {
-    return this.compactCurrency(this.approvedVersions().reduce((s, v) => s + v.budgetAmount, 0));
+    return this.formatAmount(this.approvedVersions().reduce((s, v) => s + v.budgetAmount, 0));
   }
 
   // ---- Badge classes (unchanged look) ----

@@ -3,6 +3,7 @@ using YDots.CAM.Application.Common.Abstractions.Persistence;
 using YDots.CAM.Application.Common.Abstractions.Security;
 using YDots.CAM.Application.Common.Abstractions.Services;
 using YDots.CAM.Application.Common.Constants;
+using YDots.CAM.Application.Common.Formatting;
 using YDots.CAM.Application.Common.Models;
 using YDots.CAM.Application.Features.Attribution.DTOs;
 using YDots.CAM.Domain.Entities;
@@ -414,7 +415,7 @@ public sealed class AttributionReadService(
                 $"Received {donation.ReceivedAtUtc:dd MMM yyyy HH:mm} UTC",
                 [
                     new("reference", "Donation reference", donation.Reference, true),
-                    new("amount", "Amount", $"{donation.Amount:N2} {donation.CurrencyCode}", false),
+                    new("amount", "Amount", MoneyText.Format(donation.Amount, donation.CurrencyCode), false),
                     new("status", "Status", donation.Status, false),
                     new("donor", "Donor", donation.DonorName, false)
                 ])

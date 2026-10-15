@@ -1,23 +1,20 @@
+using YDot.PAY.Application.Common.Formatting;
+
 namespace YDot.PAY.Application.Common.Models;
 
 /// <summary>
 /// An amount as the client receives it.
 ///
-/// IT CARRIES A PRE-FORMATTED <see cref="Display"/> STRING alongside the raw figure, which is
-/// unusual enough to explain. Formatting money correctly needs the currency's symbol, its
-/// position and its decimal places - all of which live on the IAM currency master. Rendering it
-/// in the browser would mean every client fetching that master and reimplementing the rule, and
-/// a receipt total that disagrees with the screen by a rounding place is a support call.
+/// IT CARRIES A PRE-FORMATTED <see cref="Display"/> STRING alongside the raw figure, for the
+/// places that show the server's words as they are (dashboard feeds, timelines). It is written by
+/// <see cref="MoneyText"/>, the same rule a receipt uses: the platform's grouping (23,81,600 when
+/// Indian) and marker, and the currency master's symbol and decimal places. Screens that format
+/// for themselves use <see cref="Amount"/> and <see cref="CurrencyCode"/> with the browser's copy
+/// of that rule, so either way the figure reads the same.
 /// </summary>
 public sealed record MoneyResponse(decimal Amount, string CurrencyCode, string Display)
 {
-    /// <summary>
-    /// A plain rendering for the common case.
-    ///
-    /// Used where no currency master row is to hand. The symbol-aware version comes from the
-    /// mapper, which has the currency row loaded.
-    /// </summary>
+    /// <summary>An amount with its display text, decimals shown only where it has them.</summary>
     public static MoneyResponse Plain(decimal amount, string currencyCode) =>
-        new(amount, currencyCode,
-            $"{amount.ToString("N2", System.Globalization.CultureInfo.InvariantCulture)} {currencyCode}");
+        new(amount, currencyCode, MoneyText.Format(amount, currencyCode));
 }

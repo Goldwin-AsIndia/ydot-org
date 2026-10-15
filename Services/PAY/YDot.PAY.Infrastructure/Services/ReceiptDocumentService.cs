@@ -4,6 +4,7 @@ using System.Text;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using YDot.PAY.Application.Common.Abstractions.Services;
+using YDot.PAY.Application.Common.Formatting;
 using YDot.PAY.Application.Common.Settings;
 using YDot.PAY.Domain.Entities;
 
@@ -153,7 +154,8 @@ public sealed class ReceiptDocumentService(
     {
         var builder = new StringBuilder();
 
-        var amount = receipt.Amount.Amount.ToString("N2", CultureInfo.InvariantCulture);
+        // EXACT: a tax document states the paise even when there are none.
+        var amount = MoneyText.Format(receipt.Amount.Amount, receipt.Amount.CurrencyCode, MoneyStyle.Exact);
         var issued = FormatIssueDate(receipt.IssuedAtUtc);
 
         // THE APPLICATION'S LOOK: its default theme colour, its font and its rounded card, the same
@@ -200,7 +202,7 @@ public sealed class ReceiptDocumentService(
         builder.Append(CultureInfo.InvariantCulture, $"""
             <div style="background:{PrimarySoft};border:1px solid {PrimaryBorder};border-radius:12px;padding:20px;margin-bottom:24px;">
               <div style="font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:{Muted};">Amount received</div>
-              <div style="font-size:28px;font-weight:700;margin-top:4px;color:{Primary};">{Encode(receipt.Amount.CurrencyCode)} {amount}</div>
+              <div style="font-size:28px;font-weight:700;margin-top:4px;color:{Primary};">{Encode(amount)}</div>
               <div style="font-size:13px;color:{Muted};margin-top:4px;">Issued on {Encode(issued)}</div>
             </div>
             """);

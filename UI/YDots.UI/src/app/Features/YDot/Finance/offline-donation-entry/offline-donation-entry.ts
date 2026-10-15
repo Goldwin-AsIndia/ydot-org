@@ -15,6 +15,7 @@ import { FinanceStateService } from '../shared/finance-state.service';
 import { OfflineDonationDraft } from '../shared/finance.model';
 import { GeoMasterService } from '../../../../Shared/services/geo-master.service';
 import { PageHeader } from '../../../../Shared/components/page-header/page-header';
+import { formatMoney } from '../../../../Shared/services/money-format';
 
 /**
  * SCR-FIN-003 — Offline donation entry.
@@ -176,7 +177,7 @@ export class OfflineDonationEntryComponent {
   protected readonly notesCount = computed(() => this.notes().trim().length);
 
   /** Duplicate candidates — read-only (4.3.2). */
-  protected readonly duplicateCandidates: readonly string[] = ['DON-2025-0442 · ₹5,000 · Cash', 'DON-2025-0411 · ₹4,500 · Cheque'];
+  protected readonly duplicateCandidates: readonly string[] = [`DON-2025-0442 · ${formatMoney(5000)} · Cash`, `DON-2025-0411 · ${formatMoney(4500)} · Cheque`];
 
   /** Draft reference — read-only (4.3.2). */
   protected readonly draftReference = signal('DRF-OFF-2025-8891');
@@ -404,9 +405,10 @@ export class OfflineDonationEntryComponent {
   }));
 
   // ================= Formatting helpers =================
+  /** Finance figures are exact to the paisa, in the platform's money format (₹23,81,600.00). */
   protected formatAmount(value: number | null): string {
     if (value === null || value === undefined) return '—';
-    return value.toLocaleString('en-IN');
+    return formatMoney(value, null, { style: 'exact' });
   }
 
   /** Snapshot of the current form values in the shape the Finance state service persists. */

@@ -120,7 +120,7 @@ services:
   # ===============================================================================================
 
   ydot-iam:
-    image: pradeesh1/ydot-iam:1.0.0
+    image: sivan67906/ydot-iam:10.1.8
     build:
       context: .
       dockerfile: Services/IAM/YDot.IAM.Api/Dockerfile
@@ -135,6 +135,17 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_HTTP_PORTS: "8080"
+
+      # ---- Money format ----------------------------------------------------------------------
+      # HOW EVERY AMOUNT IN THE PLATFORM IS WRITTEN, and the SAME TWO VARIABLES on ydot-iam,
+      # ydot-cam, ydot-don and ydot-pay, so a receipt, a dashboard tile and a donor's history
+      # never group the same rupees two ways. IAM hands them to the browser (GET
+      # /api/v1/money-format) along with the currency master's symbols and decimal places.
+      #   MONEY_NUMBER_GROUPING  Indian (23,81,600, the default) or International (2,381,600)
+      #   MONEY_CURRENCY_MARKER  Symbol (₹23,81,600, the default) or Code (INR 23,81,600)
+      # Set them in .env to change all four at once; restart the services to apply.
+      MoneyFormat__NumberGrouping: "${MONEY_NUMBER_GROUPING:-Indian}"
+      MoneyFormat__CurrencyMarker: "${MONEY_CURRENCY_MARKER:-Symbol}"
 
       # ---- Database ------------------------------------------------------------------------
       # The service name, not localhost: inside the network the database is a DNS name.
@@ -348,7 +359,7 @@ services:
   # ===============================================================================================
 
   ydot-cam:
-    image: pradeesh1/ydot-cam:1.0.0
+    image: sivan67906/ydot-cam:10.1.8
     build:
       context: .
       dockerfile: Services/CAM/YDots.CAM.API/Dockerfile
@@ -359,6 +370,10 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Development
       ASPNETCORE_HTTP_PORTS: "8080"
+
+      # ---- Money format: the same two variables as ydot-iam (see there) -----------------------
+      MoneyFormat__NumberGrouping: "${MONEY_NUMBER_GROUPING:-Indian}"
+      MoneyFormat__CurrencyMarker: "${MONEY_CURRENCY_MARKER:-Symbol}"
 
       DatabaseSettings__ConnectionString: "Host=ydot-postgres;Port=5432;Database=ydotphaseupdated;Username=postgres;Password=user;Include Error Detail=true"
       DatabaseSettings__ApplyMigrationsOnStartup: "true"
@@ -444,7 +459,7 @@ services:
   # ===============================================================================================
 
   ydot-don:
-    image: pradeesh1/ydot-don:1.0.0
+    image: sivan67906/ydot-don:10.1.8
     build:
       context: .
       dockerfile: Services/DON/YDots.DON.Api/Dockerfile
@@ -455,6 +470,10 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Development
       ASPNETCORE_HTTP_PORTS: "8080"
+
+      # ---- Money format: the same two variables as ydot-iam (see there) -----------------------
+      MoneyFormat__NumberGrouping: "${MONEY_NUMBER_GROUPING:-Indian}"
+      MoneyFormat__CurrencyMarker: "${MONEY_CURRENCY_MARKER:-Symbol}"
 
       DatabaseSettings__ConnectionString: "Host=ydot-postgres;Port=5432;Database=ydotphaseupdated;Username=postgres;Password=user;Include Error Detail=true"
       DatabaseSettings__ApplyMigrationsOnStartup: "true"
@@ -499,7 +518,7 @@ services:
   # ===============================================================================================
 
   ydot-pay:
-    image: pradeesh1/ydot-pay:1.0.0
+    image: sivan67906/ydot-pay:10.1.8
     build:
       context: .
       dockerfile: Services/PAY/YDot.PAY.Api/Dockerfile
@@ -510,6 +529,10 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Development
       ASPNETCORE_HTTP_PORTS: "8080"
+
+      # ---- Money format: the same two variables as ydot-iam (see there) -----------------------
+      MoneyFormat__NumberGrouping: "${MONEY_NUMBER_GROUPING:-Indian}"
+      MoneyFormat__CurrencyMarker: "${MONEY_CURRENCY_MARKER:-Symbol}"
 
       DatabaseSettings__ConnectionString: "Host=ydot-postgres;Port=5432;Database=ydotphaseupdated;Username=postgres;Password=user;Include Error Detail=true"
       DatabaseSettings__ApplyMigrationsOnStartup: "true"
@@ -710,7 +733,7 @@ services:
   # ===============================================================================================
 
   ydot-ui:
-    image: pradeesh1/ydot-ui:1.0.0
+    image: sivan67906/ydot-ui:10.1.8
     build:
       context: UI/YDots.UI
       dockerfile: Dockerfile

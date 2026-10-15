@@ -11,6 +11,7 @@ import { CloseRequestStoreService } from '../../../../Shared/services/close-requ
 import { CurrentUserService } from '../../../../Shared/services/current-user.service';
 import { PeopleDirectoryService } from '../../../../Shared/services/people-directory.service';
 import { viewerTimeZone } from '../../../../Shared/services/clock';
+import { formatMoney } from '../../../../Shared/services/money-format';
 
 /**
  * Pause, resume and close campaign.
@@ -565,8 +566,9 @@ export class PauseResumeCloseCampaignComponent implements OnInit {
 
   protected readonly lastRefreshed = signal(this.nowLabel());
 
+  /** Raised and target, whole, in the platform's money format. */
   formatCurrency(value: number): string {
-    return '₹' + value.toLocaleString('en-IN');
+    return formatMoney(value ?? 0, null, { style: 'whole' });
   }
 
   refresh(): void {

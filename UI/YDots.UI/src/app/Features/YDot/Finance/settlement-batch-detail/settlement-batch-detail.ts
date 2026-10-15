@@ -12,6 +12,7 @@ import {
 } from '../../../../Shared/models/finance.model';
 import { FinanceStateService } from '../shared/finance-state.service';
 import { PageHeader } from '../../../../Shared/components/page-header/page-header';
+import { formatMoney } from '../../../../Shared/services/money-format';
 
 /**
  * SCR-FIN-002 — Settlement batch detail.
@@ -377,14 +378,15 @@ export class SettlementBatchDetailComponent {
     reference: this.summary.settlementBatchReference,
     state: this.lifecycleState,
     effectiveTime: this.lastRefresh(),
-    downstreamStatus: `${this.summary.matchedAmount.toLocaleString('en-IN')} matched · ${this.summary.unmatchedAmount.toLocaleString('en-IN')} unmatched`,
+    downstreamStatus: `${this.formatAmount(this.summary.matchedAmount)} matched · ${this.formatAmount(this.summary.unmatchedAmount)} unmatched`,
     owner: this.owner,
     nextAction: 'Resolve blocking validation issues',
   }));
 
   // ================= Formatting helpers =================
+  /** Finance figures are exact to the paisa, in the platform's money format (₹23,81,600.00). */
   protected formatAmount(value: number): string {
-    return value.toLocaleString('en-IN');
+    return formatMoney(value ?? 0, null, { style: 'exact' });
   }
   protected formatDate(iso: string): string {
     if (!iso) return '—';

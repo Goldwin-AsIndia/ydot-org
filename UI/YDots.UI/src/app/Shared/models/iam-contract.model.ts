@@ -69,6 +69,10 @@ export type MfaMethodType = 'authenticatorApp' | 'email' | 'securityKey';
 
 export type MfaRequirement = 'inherited' | 'required' | 'optional';
 
+export type MoneyCurrencyMarker = 'symbol' | 'code';
+
+export type MoneyNumberGrouping = 'indian' | 'international';
+
 export type PaymentGatewayConfigurationAction = 'created' | 'updated' | 'activated' | 'deactivated' | 'deleted' | 'tested' | 'credentialsRotated';
 
 export type PaymentGatewayEnvironment = 'sandbox' | 'production';
@@ -1392,6 +1396,13 @@ export interface CurrencyDetailResponseApiResponse {
   correlationId?: string | null;
 }
 
+export interface CurrencyFormatResponse {
+  code?: string | null;
+  symbol?: string | null;
+  symbolPosition?: SymbolPosition;
+  decimalPlaces?: number;
+}
+
 export interface CurrencyListItemResponse {
   id?: string;
   tenantId?: string | null;
@@ -2389,6 +2400,21 @@ export interface MfaMethodResponse {
   methodTypeDisplay?: string | null;
   statusDisplay?: string | null;
   createdAtUtc?: string | null;
+}
+
+export interface MoneyFormatResponse {
+  numberGrouping?: MoneyNumberGrouping;
+  currencyMarker?: MoneyCurrencyMarker;
+  currencies?: CurrencyFormatResponse[] | null;
+}
+
+export interface MoneyFormatResponseApiResponse {
+  success?: boolean;
+  data?: MoneyFormatResponse;
+  message?: string | null;
+  errorCode?: string | null;
+  errors?: ValidationError[] | null;
+  correlationId?: string | null;
 }
 
 export interface NavigationResponse {

@@ -54,6 +54,9 @@ const ANONYMOUS_PATHS = [
   // they must not trigger a refresh either. A refresh attempt here would send an anonymous
   // visitor to the sign-in page in the middle of giving money.
   '/public/donations',
+
+  // How amounts are written: read before anybody signs in, by the donation form included.
+  '/money-format',
 ];
 
 /**

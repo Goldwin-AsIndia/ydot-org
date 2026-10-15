@@ -4,6 +4,7 @@ import { Component, computed, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { PageHeader } from '../../../../Shared/components/page-header/page-header';
+import { currencyMark, formatMoney } from '../../../../Shared/services/money-format';
 
 /**
  * SCR-UX-004 — Standard list page.
@@ -216,7 +217,7 @@ export class StandardListPageComponent {
     { key: 'reference', label: 'Donation ID' },
     { key: 'type', label: 'Donation Type' },
     { key: 'name', label: 'Donor / Organisation' },
-    { key: 'amount', label: 'Amount (₹)' },
+    { key: 'amount', label: `Amount (${currencyMark()})` },
     { key: 'updated', label: 'Date' },
     { key: 'status', label: 'Status' },
     { key: 'campaign', label: 'Campaign' },
@@ -637,9 +638,13 @@ export class StandardListPageComponent {
   }));
 
   // ================= Formatting helpers =================
+  /** A cell under "Amount (₹)": the heading names the currency, so the figure goes unmarked. */
   protected formatAmount(value: number): string {
-    return value.toLocaleString('en-IN');
+    return formatMoney(value ?? 0, null, { marker: false });
   }
+
+  /** "₹" or "INR" for the amount headings, per the platform's money format. */
+  protected readonly currencyMark = currencyMark;
   protected statusClass(status: RecordStatus): string {
     switch (status) {
       case 'Completed':

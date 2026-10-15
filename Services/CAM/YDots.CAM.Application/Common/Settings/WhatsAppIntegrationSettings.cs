@@ -33,4 +33,17 @@ public sealed class WhatsAppIntegrationSettings
 
     /// <summary>Most rows the recipient pool and message report return in one call.</summary>
     public int MaxListRows { get; set; } = 50000;
+
+    /// <summary>
+    /// The most numbers one send may carry WHEN THE WORKER SETS NO CAP of its own
+    /// (Wati:MaxRecipientsPerJob = 0). Otherwise the worker's cap is the limit, as published in its
+    /// heartbeat, so the page and the worker always agree.
+    /// </summary>
+    public int MaxRecipientsPerSend { get; set; } = 1000;
+
+    /// <summary>The most numbers one recipient group may hold.</summary>
+    public int MaxGroupMembers { get; set; } = 5000;
+
+    /// <summary>The most rows one send-log export writes.</summary>
+    public int MaxExportRows { get; set; } = 100000;
 }

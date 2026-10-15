@@ -6,6 +6,7 @@ import {
   CheckJobResultDto,
   JobFileKind,
   JobTimelineDto,
+  SendBroadcastDto,
   WatiMessageDto,
   WatiTemplateDto,
   WhatsAppApiService,
@@ -18,11 +19,13 @@ import { countryOf, scanRow } from './number-tools';
 import {
   AlreadyChecked,
   CheckJob,
+  Composer,
+  EMPTY_COMPOSER,
   FileKind,
   InvalidLine,
   JobTimelineStep,
-  RegistryEntry,
   ResultRow,
+  SelectedNumber,
   SheetSummary,
   UploadAnalysis,
   UploadNumber,
@@ -35,12 +38,13 @@ import {
 import { saveFile } from './wa-format';
 
 /**
- * CheckNumber -> Wati, read from the Campaign service.
+ * CheckNumber -> selection -> Wati, read from the Campaign service.
  *
- * NOTHING IS SIMULATED HERE ANY MORE. A check is carried out by the YDot.Integration worker: this
- * store uploads the file, then follows the job the worker creates for it; a broadcast is a request
- * left for the worker, followed the same way. The screens still read only the signals below, which
- * is why they barely changed when the simulation was replaced.
+ * A CHECK ONLY VALIDATES. The YDot.Integration worker finds out which numbers of an uploaded file are on
+ * WhatsApp and stops there; nobody is messaged because a file arrived. The validated numbers wait in the
+ * organisation's pool, the person picks the ten or fifty to message (the selection kept here), fills a
+ * template (the composer kept here), reviews what will happen and sends. Each send is a request left for
+ * the worker, followed the same way a check is.
  *
  * THE SERVER IS THE DUPLICATE CHECK. Before a file is submitted, `analyse` asks which of its numbers
  * already have a saved answer, so the review shows what will - and will not - be paid for. The
@@ -57,12 +61,14 @@ const JOB_POLL_MS = 2500;
 const UPLOAD_POLL_MS = 1500;
 /** How long an upload is followed before the page stops asking (the job still appears in Jobs later). */
 const UPLOAD_FOLLOW_MS = 30 * 60 * 1000;
-/** How often a request left for the worker (retry, stop, broadcast) is checked. */
+/** How often a request left for the worker (retry, stop, send) is checked. */
 const COMMAND_POLL_MS = 1000;
 /** How long a request is followed before the page stops waiting for it. */
 const COMMAND_FOLLOW_MS = 45 * 1000;
 /** How often the delivery report is read again while it is on screen. */
 const REPORT_POLL_MS = 10000;
+/** The sends offered as filters on the delivery report. */
+const REPORT_BROADCASTS = 200;
 
 const NO_DOWNLOADS = { original: false, submitted: false, results: false, raw: false, invalid: false };
 
@@ -87,9 +93,6 @@ export class WhatsAppStore {
   readonly messages = signal<WatiMessage[]>([]);
   readonly broadcasts = signal<WatiBroadcast[]>([]);
 
-  /** Numbers on WhatsApp that this organisation can message, newest check first. */
-  readonly pool = signal<RegistryEntry[]>([]);
-
   /** True until the first answer from the server has arrived. */
   readonly loading = signal(true);
   /** Why the last read failed, in words for the person; null when it worked. */
@@ -103,10 +106,29 @@ export class WhatsAppStore {
   readonly feed = signal<{ number: string; whatsapp: WaResult }[]>([]);
   readonly runStartedAt = signal<number>(0);
   readonly now = signal<number>(Date.now());
-  /** What the worker said about the broadcast just sent; shown once on the report it opens. */
+  /** What the worker said about the send just made; shown once on the send log it opens. */
   readonly broadcastNotice = signal<string | null>(null);
   /** Saved answers that were in the running job from the start, so the live tally counts only new ones. */
   readonly runSaved = signal<{ yes: number; no: number }>({ yes: 0, no: 0 });
+
+  // ------------------------------------------------------------------ the send being composed
+
+  /** The numbers picked for the next send, by number, each with the check it was picked from. */
+  readonly selection = signal<ReadonlyMap<string, SelectedNumber>>(new Map());
+  /** Template, values, bindings, name, campaign, tags - what has been chosen and typed so far. */
+  readonly composer = signal<Composer>(EMPTY_COMPOSER);
+  /** Which step of the composer is on screen: 1 numbers, 2 template, 3 review and send. */
+  readonly composeStep = signal<1 | 2 | 3>(1);
+  /**
+   * The campaign and tags a recipient group brought into the composer, with what was there before. They
+   * came with the group's numbers, so clearing the selection takes them out again - unless the person
+   * changed them since. Without it a hand-picked send went out with the last group's tags.
+   */
+  private fromGroup: { campaignId: string | null; tags: readonly string[]; before: Pick<Composer, 'campaignId' | 'tags'> } | null = null;
+
+  /** The most numbers one send may hold, as the worker and the server agree (0 until known). */
+  readonly selectionCap = computed(() => this.overview()?.maxRecipientsPerSend ?? 0);
+  readonly selectionList = computed(() => [...this.selection().values()]);
 
   readonly activeJob = computed(() => this.jobs().find((j) => j.id === this.activeJobId()) ?? null);
 
@@ -189,28 +211,23 @@ export class WhatsAppStore {
     }
   }
 
-  /** Reads what the Wati screen needs: templates, recipients, broadcasts and messages. */
+  /** Reads what the Wati screens share: templates, the sends offered as report filters, and the delivery report. */
   async loadWati(force = false): Promise<void> {
     if (this.watiLoaded && !force) {
       return;
     }
     const generation = this.generation;
     try {
-      const [templates, recipients, broadcasts, messages] = await Promise.all([
+      const [templates, broadcasts, messages] = await Promise.all([
         firstValueFrom(this.api.templates()),
-        firstValueFrom(this.api.recipients()),
-        firstValueFrom(this.api.broadcasts()),
+        firstValueFrom(this.api.broadcasts({ page: 1, pageSize: REPORT_BROADCASTS })),
         firstValueFrom(this.api.messages()),
       ]);
       if (generation !== this.generation) {
         return;
       }
       this.templates.set(templates.map(toTemplate));
-      this.pool.set(recipients.map((r) => ({
-        number: r.number, iso: r.iso, country: r.country, whatsapp: 'yes' as WaResult, note: '',
-        checkedAt: r.checkedAtUtc, jobId: r.jobNumber, fileName: r.fileName, sharedToWati: true,
-      })));
-      this.broadcasts.set(broadcasts.map((b) => ({
+      this.broadcasts.set(broadcasts.results.items.map((b) => ({
         id: b.id, name: b.name, templateName: b.templateName, templateLabel: b.templateLabel,
         createdAt: b.createdAtUtc, recipients: b.recipients,
       })));
@@ -238,7 +255,7 @@ export class WhatsAppStore {
     }
   }
 
-  private async loadOverview(): Promise<void> {
+  async loadOverview(): Promise<void> {
     const generation = this.generation;
     try {
       const overview = await firstValueFrom(this.api.overview());
@@ -260,12 +277,15 @@ export class WhatsAppStore {
     this.jobs.set([]);
     this.messages.set([]);
     this.broadcasts.set([]);
-    this.pool.set([]);
     this.draft.set(null);
     this.activeJobId.set(null);
     this.feed.set([]);
     this.broadcastNotice.set(null);
     this.problem.set(null);
+    this.selection.set(new Map());
+    this.composer.set(EMPTY_COMPOSER);
+    this.fromGroup = null;
+    this.composeStep.set(1);
     this.loading.set(true);
   }
 
@@ -434,6 +454,7 @@ export class WhatsAppStore {
       detailLoaded: false,
       timeline: [],
       downloads: NO_DOWNLOADS,
+      sends: [],
     };
 
     this.jobs.update((list) => [standIn, ...list]);
@@ -545,7 +566,6 @@ export class WhatsAppStore {
             this.feed.set(latest.slice(-7).reverse().map((r) => ({ number: r.number, whatsapp: r.whatsapp })));
             this.finishFollowing(jobId);
             void this.loadOverview();
-            this.watiLoaded = false; // the recipient pool has changed
             return;
           }
         } catch (error) {
@@ -569,7 +589,7 @@ export class WhatsAppStore {
   }
 
   /**
-   * Asks the worker to pick a job up where it stopped. Nothing that already succeeded is repeated or
+   * Asks the worker to pick a check up where it stopped. Nothing that already succeeded is repeated or
    * paid for again. Rejects with the worker's own reason when it turns the request down.
    */
   async resume(id: string): Promise<void> {
@@ -649,6 +669,11 @@ export class WhatsAppStore {
         raw: detail.downloads.raw,
         invalid: detail.downloads.invalid,
       },
+      sends: (detail.sends ?? []).map((s) => ({
+        id: s.id, reference: s.reference, name: s.name, templateName: s.templateName, status: s.status,
+        createdAt: s.createdAtUtc, requestedBy: s.requestedByName ?? null,
+        fromThisCheck: s.fromThisCheck, acceptedFromThisCheck: s.acceptedFromThisCheck,
+      })),
     };
     this.jobs.update((list) =>
       list.some((j) => j.id === job.id) ? list.map((j) => (j.id === job.id ? job : j)) : [job, ...list],
@@ -681,47 +706,145 @@ export class WhatsAppStore {
     }
   }
 
-  // =========================================================================================== wati
+  // =========================================================================================== selection
 
   /**
-   * Leaves a broadcast for the worker and waits for it to be accepted.
-   *
-   * Resolves with the broadcast's id (for the report's filter) once the worker has created it. The
-   * worker applies its own safeguards first - the allow-list, the cap on recipients, "already sent
-   * this template" - and each recipient it leaves out is recorded with the reason.
+   * Adds numbers to the selection, never beyond the per-send cap. Returns how many did not fit, so the
+   * screen can say so instead of quietly dropping them.
    */
-  async sendBroadcast(input: {
-    name: string;
-    template: WatiTemplate;
-    values: Record<string, string>;
-    numbers: readonly string[];
-  }): Promise<{ broadcastId: string | null; notice: string | null }> {
+  select(numbers: readonly SelectedNumber[]): number {
+    const cap = this.selectionCap();
+    const next = new Map(this.selection());
+    let leftOut = 0;
+    for (const entry of numbers) {
+      if (next.has(entry.number)) {
+        next.set(entry.number, entry);
+        continue;
+      }
+      if (cap > 0 && next.size >= cap) {
+        leftOut++;
+        continue;
+      }
+      next.set(entry.number, entry);
+    }
+    this.selection.set(next);
+    return leftOut;
+  }
+
+  unselect(numbers: readonly string[]): void {
+    const next = new Map(this.selection());
+    for (const number of numbers) {
+      next.delete(number);
+    }
+    this.selection.set(next);
+  }
+
+  clearSelection(): void {
+    this.selection.set(new Map());
+    const carried = this.fromGroup;
+    this.fromGroup = null;
+    this.composer.update((c) => ({
+      ...c,
+      groupId: null,
+      groupName: null,
+      campaignId: carried && c.campaignId === carried.campaignId ? carried.before.campaignId : c.campaignId,
+      tags: carried && c.tags.join('\n') === carried.tags.join('\n') ? carried.before.tags : c.tags,
+    }));
+  }
+
+  patchComposer(change: Partial<Composer>): void {
+    this.composer.update((c) => ({ ...c, ...change }));
+  }
+
+  /**
+   * Ties the selection to a recipient group (loaded, or just saved from it): a send made from it says so
+   * in the send log, and the group's campaign and tags become the send's until the selection is cleared.
+   */
+  linkGroup(group: { id: string; name: string; campaignId?: string | null; tags: readonly string[] }): void {
+    const current = this.composer();
+    const before = this.fromGroup?.before ?? { campaignId: current.campaignId, tags: current.tags };
+    const campaignId = group.campaignId ?? before.campaignId;
+    const tags = group.tags.length > 0 ? group.tags : before.tags;
+    this.fromGroup = { campaignId, tags, before };
+    this.composer.update((c) => ({ ...c, groupId: group.id, groupName: group.name, campaignId, tags }));
+  }
+
+  /**
+   * Starts a send from a recipient group: its members that are still on WhatsApp become the selection
+   * (as many as one send may hold), and the group's campaign and tags carry over. Returns how many
+   * reachable members did not fit under the cap.
+   */
+  async useGroup(groupId: string): Promise<{ selected: number; leftOut: number; name: string }> {
+    const detail = await this.send(() => firstValueFrom(this.api.group(groupId)), 'That group could not be loaded.');
+    const reachable = detail.members.filter((m) => m.reachable);
+    this.selection.set(new Map());
+    const leftOut = this.select(reachable.map((m) => ({
+      number: m.number, jobId: m.sourceJobId ?? '', jobNumber: m.sourceJobNumber ?? '', contactName: m.contactName ?? null,
+    })));
+    this.linkGroup(detail.group);
+    this.composeStep.set(1);
+    return { selected: this.selection().size, leftOut, name: detail.group.name };
+  }
+
+  /** The send as the server wants it, from the selection and the composer. */
+  sendRequest(template: WatiTemplate | null): SendBroadcastDto {
+    const c = this.composer();
+    return {
+      templateName: template?.name ?? c.templateName,
+      templateLabel: template?.label ?? null,
+      broadcastName: c.broadcastName.trim(),
+      values: { ...c.values },
+      campaignId: c.campaignId,
+      selection: this.selectionList().map((s) => ({ number: s.number, sourceJobId: s.jobId || null })),
+      recipientGroupId: c.groupId,
+      tags: [...c.tags],
+      bindings: Object.entries(c.bindings).map(([name, source]) => ({ name, source })),
+    };
+  }
+
+  // =========================================================================================== sending
+
+  /**
+   * Leaves the send for the worker and waits for it to be accepted.
+   *
+   * Resolves with the send's id (for the send log) once the worker has created it. The worker applies
+   * its own safeguards first - the allow-list, the cap per send, "already sent this template" - and each
+   * number it leaves out is recorded with the reason. The selection and composer are cleared once the
+   * send is with the worker.
+   */
+  async sendSelection(template: WatiTemplate | null): Promise<{ broadcastId: string | null; notice: string | null }> {
     const accepted = await this.send(
-      () => firstValueFrom(this.api.sendBroadcast({
-        templateName: input.template.name,
-        templateLabel: input.template.label,
-        broadcastName: input.name,
-        values: input.values,
-        recipients: [...input.numbers],
-      })),
-      'The broadcast could not be sent.',
+      () => firstValueFrom(this.api.sendBroadcast(this.sendRequest(template))),
+      'The send could not be queued.',
     );
 
     const outcome = await this.awaitCommand(
       accepted.reference,
-      'The integration worker has not picked the broadcast up yet. It will be sent as soon as the worker is back - look for it in the report.',
+      'The integration worker has not picked the send up yet. It will be sent as soon as the worker is back - look for it in the send log.',
       true,
     );
+
+    this.selection.set(new Map());
+    this.composer.update((c) => ({ ...EMPTY_COMPOSER, templateName: c.templateName, templateChosenByPerson: c.templateChosenByPerson, values: c.values }));
+    this.fromGroup = null;
+    this.composeStep.set(1);
     await this.loadWati(true);
     void this.loadOverview();
     this.broadcastNotice.set(outcome.message);
     return { broadcastId: outcome.entityId, notice: outcome.message };
   }
 
+  /** Asks the worker to send a send's retryable failures again, and waits for it to accept. */
+  async retrySend(id: string): Promise<string | null> {
+    const accepted = await this.send(() => firstValueFrom(this.api.retryBroadcast(id)), 'The send could not be retried.');
+    const outcome = await this.awaitCommand(accepted.reference, 'The integration worker has not picked the retry up yet. It will run as soon as the worker is back.', true);
+    return outcome.message;
+  }
+
   // =========================================================================================== requests
 
   /** Runs a call and turns a refusal into an Error holding a sentence for the person. */
-  private async send<T>(call: () => Promise<T>, fallback: string): Promise<T> {
+  async send<T>(call: () => Promise<T>, fallback: string): Promise<T> {
     try {
       return await call();
     } catch (error) {
@@ -766,8 +889,13 @@ export class WhatsAppStore {
 
 // ================================================================================================ helpers
 
+/** A template body (or header) with its {{placeholders}} filled; an empty one stays visible. */
 export function renderTemplate(template: WatiTemplate, values: Record<string, string>): string {
-  return template.body.replace(/\{\{(\w+)\}\}/g, (_m, key: string) => (values[key]?.trim() ? values[key].trim() : `{{${key}}}`));
+  return fill(template.body, values);
+}
+
+export function fill(text: string | null | undefined, values: Record<string, string>): string {
+  return (text ?? '').replace(/\{\{\s*([\w.-]+)\s*\}\}/g, (_m, key: string) => (values[key]?.trim() ? values[key].trim() : `{{${key}}}`));
 }
 
 function delay(ms: number): Promise<void> {
@@ -780,14 +908,17 @@ function toOverview(dto: WhatsAppOverviewDto): WhatsAppOverview {
     workerOnline: dto.worker.online,
     workerLastSeen: dto.worker.lastHeartbeatAtUtc ?? null,
     checkNumberReady: dto.settings.checkNumberEnabled && dto.settings.checkNumberConfigured,
-    watiReady: dto.settings.watiEnabled && dto.settings.watiConfigured,
+    watiReady: dto.settings.watiEnabled && dto.settings.watiConfigured && dto.settings.manualBroadcastsAllowed,
     pricePerNumber: dto.settings.pricePerNumber,
     minimumCharge: dto.settings.minimumChargePerTask,
     currency: dto.settings.currency || 'USD',
     maxRecipientsPerJob: dto.settings.maxRecipientsPerJob,
+    maxRecipientsPerSend: dto.settings.maxRecipientsPerSend ?? 0,
     defaultTemplateName: dto.settings.defaultTemplateName ?? null,
     allowListActive: dto.settings.allowListActive,
     allowListSize: dto.settings.allowListSize,
+    minimumNumbersPerTask: dto.settings.minimumNumbersPerTask ?? 1,
+    billableMinimumNumbers: dto.settings.billableMinimumNumbers ?? 0,
     numbersVerified: dto.statistics.numbersVerified,
     onWhatsApp: dto.statistics.onWhatsApp,
     jobsRun: dto.statistics.jobsRun,
@@ -838,21 +969,26 @@ function toJob(dto: CheckJobDto, previous?: CheckJob): CheckJob {
     detailLoaded: previous?.detailLoaded ?? false,
     timeline: previous?.timeline ?? [],
     downloads: previous?.downloads ?? NO_DOWNLOADS,
+    sends: previous?.sends ?? [],
   };
 }
 
 function toResultRow(dto: CheckJobResultDto): ResultRow {
-  return { number: dto.number, iso: dto.iso, country: dto.country, whatsapp: dto.whatsApp, note: dto.note, status: dto.status };
+  return {
+    number: dto.number, iso: dto.iso, country: dto.country, whatsapp: dto.whatsApp, note: dto.note, status: dto.status,
+    contactName: dto.contactName ?? null, lastSend: dto.lastSendReference ?? null,
+  };
 }
 
 /**
- * The job's timeline: the four moments the page was designed to show, each with the REAL time from
- * the worker's own step log.
+ * The job's timeline: the moments the page was designed to show, each with the REAL time from the
+ * worker's own step log.
  *
- * FOUR, NOT EVERY STEP. The worker records up to a dozen steps per job (download, extraction, each
+ * A FEW, NOT EVERY STEP. The worker records up to a dozen steps per job (download, extraction, each
  * retry...), and they are all on the server for whoever needs them; the row under the job's facts
  * has room for a handful. So it shows when the file was read, when it went to CheckNumber.ai, when
- * the answers came back and what WATI then did - and how the job ended, if it did not end well.
+ * the answers came back and that the numbers are ready to be picked - and how the job ended, if it
+ * did not end well.
  */
 function toTimeline(detail: CheckJobDetailDto): JobTimelineStep[] {
   // A step that was retried appears several times; the last attempt is the one that counted.
@@ -890,17 +1026,18 @@ function toTimeline(detail: CheckJobDetailDto): JobTimelineStep[] {
 
   const wati = detail.wati;
   if (wati) {
+    // An OLDER check that still messaged its numbers by itself.
     const figures = [`${wati.accepted.toLocaleString('en-IN')} sent`];
     if (wati.failed > 0) figures.push(`${wati.failed.toLocaleString('en-IN')} failed`);
     if (wati.skipped > 0) figures.push(`${wati.skipped.toLocaleString('en-IN')} skipped`);
     steps.push({
-      label: `WhatsApp messages: ${figures.join(', ')}`,
+      label: `Automatic WhatsApp messages: ${figures.join(', ')}`,
       at: wati.completedAtUtc ?? null,
       state: wati.failed > 0 && wati.accepted === 0 ? 'bad' : wati.completedAtUtc ? 'done' : 'wait',
     });
   } else if (job.displayStatus === 'completed') {
     steps.push({
-      label: job.yes > 0 ? `${job.yes.toLocaleString('en-IN')} valid numbers ready in Wati` : 'No number on WhatsApp',
+      label: job.yes > 0 ? `${job.yes.toLocaleString('en-IN')} valid numbers ready to pick for a message` : 'No number on WhatsApp',
       at: job.completedAtUtc ?? null,
       state: 'done',
     });
@@ -924,6 +1061,11 @@ function toTemplate(dto: WatiTemplateDto): WatiTemplate {
     body: dto.body ?? '',
     variables: dto.variables,
     defaults: dto.defaults,
+    headerFormat: dto.headerFormat ?? null,
+    headerText: dto.headerText ?? null,
+    mediaVariable: dto.mediaVariable ?? null,
+    footer: dto.footer ?? null,
+    buttons: dto.buttons ?? [],
   };
 }
 
@@ -950,5 +1092,8 @@ function toMessage(dto: WatiMessageDto): WatiMessage {
     failedCode: dto.failedCode ?? null,
     failedReason: dto.failedReason ?? null,
     replyText: dto.replyText ?? null,
+    contactName: dto.contactName ?? null,
+    sourceJob: dto.sourceJobNumber ?? null,
+    checkNumberTask: dto.checkNumberTaskId ?? null,
   };
 }
